@@ -121,7 +121,3 @@ function DeviceFrame({ kind, children }: { kind: "pc" | "mobile"; children: Reac
     </div>
   );
 }
-
-function Index() {
-  return <PlaceholderIndex />;
-}
