@@ -843,212 +843,69 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
         )}
 
         {/* ===== 沟通历史（CM-C 组）===== */}
-        {tab === "history" && (
-          <>
-            <Section title="AI 历史触点摘要">
-              <p className="text-sm leading-relaxed text-foreground">
-                近 30 天共触达 <b>14 次</b>（电话 4、IM 8、视频 1、上门 1）。
-                主要话题：<span className="text-primary">血糖控制</span>、
-                <span className="text-primary">用药依从性</span>、
-                <span className="text-primary">情绪关怀</span>。客户最关心：
-                <span className="text-warning">"夜间低血糖如何避免"</span>。
-              </p>
-            </Section>
+        {tab === "history" && <CommunicationTimeline />}
 
-            <Section title="沟通时间线">
+        {tab === "family" && <FamilyView selfName={c.name} selfAge={c.age} />}
+
+        {tab === "report" && <ReportTab />}
+        {tab === "inquiry" && <InquiryTab />}
+        {tab === "med" && <MedTab />}
+      </div>
+
+      {/* 右侧固定悬浮：今日建议动作 + 快捷沟通 */}
+      <div className="absolute right-2 top-1/3 z-20 flex flex-col items-end gap-2">
+        {showQuick && (
+          <div className="bg-card border border-border rounded-xl shadow-[var(--shadow-card)] p-2.5 w-44 animate-in fade-in slide-in-from-right-2 duration-150">
+            <div className="text-[10px] text-muted-foreground flex items-center gap-1 mb-1.5"><Sparkles className="w-3 h-3 text-primary" />今日建议动作</div>
+            <div className="text-[11px] leading-relaxed mb-2">
+              · 上午 9:30 电话回访<br/>
+              · 推送低 GI 食谱<br/>
+              · 邀请女儿协同关怀
+            </div>
+            <div className="grid grid-cols-4 gap-1">
               {[
-                { t: "今天 08:30", icon: Phone,         type: "电话", d: "低血糖处置回访 5'12\"" },
-                { t: "昨天 19:00", icon: MessageSquare, type: "IM",   d: "推送晚餐建议（低 GI）" },
-                { t: "5/12 14:30", icon: Video,         type: "视频", d: "MDT 会诊参与 32'" },
-                { t: "5/10 10:00", icon: HomeIcon,      type: "上门", d: "上门测量血糖 + 健康教育" },
-                { t: "5/08 09:15", icon: Mic,           type: "语音", d: "用药提醒语音 23\"" },
-              ].map((e, i) => {
-                const Icon = e.icon;
+                { i: Phone, c: "primary",   tip: "电话",   on: () => toast.success(`正在拨打 ${c.name}`) },
+                { i: Video, c: "secondary", tip: "视频",   on: () => toast.info("视频邀请已发送") },
+                { i: Mic,   c: "secondary", tip: "语音",   on: () => toast.info("按住说话…") },
+                { i: MessageSquare, c: "secondary", tip: "IM", on: () => push({ name: "chat", id: c.id }) },
+              ].map((a, i) => {
+                const Icon = a.i;
                 return (
-                  <div key={i} className="flex gap-3 py-2 border-b border-border last:border-0">
-                    <div className="flex flex-col items-center">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center"><Icon className="w-3.5 h-3.5 text-primary" /></div>
-                      <div className="flex-1 w-px bg-border mt-1" />
-                    </div>
-                    <div className="flex-1 pb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary">{e.type}</span>
-                        <span className="text-[11px] text-muted-foreground">{e.t}</span>
-                      </div>
-                      <div className="text-sm mt-0.5">{e.d}</div>
-                    </div>
-                  </div>
+                  <button key={i} onClick={a.on} title={a.tip}
+                    className={`h-8 rounded-lg flex items-center justify-center ${a.c === "primary" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+                    <Icon className="w-3.5 h-3.5" />
+                  </button>
                 );
               })}
-            </Section>
-
-            {/* 变化雷达（CM-D） */}
-            <Section title="变化雷达 · 异常告警">
-              <div className="space-y-2">
-                {[
-                  { p: "P0", c: "danger",  t: "关键指标变化", d: "HbA1c 由 6.8 → 7.4 (↑0.6)" },
-                  { p: "P0", c: "danger",  t: "行为异常", d: "连续 3 天打卡质量下降" },
-                  { p: "P1", c: "warning", t: "关系变化", d: "近 7 天家人互动 -40%" },
-                  { p: "P1", c: "warning", t: "重要日期", d: "下周三 生日（建议送祝福）" },
-                  { p: "P0", c: "danger",  t: "续费机会", d: "服务包 30 天后到期" },
-                ].map((a, i) => (
-                  <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg ${a.c === "danger" ? "bg-danger/5" : "bg-warning/5"}`}>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${a.c === "danger" ? "bg-danger/15 text-danger" : "bg-warning/15 text-[oklch(0.5_0.13_75)]"}`}>{a.p}</span>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{a.t}</div>
-                      <div className="text-[11px] text-muted-foreground">{a.d}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="问诊 + 医嘱历史">
-              {[
-                { t: "5/14 赵主任", d: "继续当前方案，2 周后复查 HbA1c" },
-                { t: "4/28 钱药师", d: "二甲双胍餐后服用，监测低血糖" },
-              ].map((r, i) => (
-                <div key={i} className="py-2 border-b border-border last:border-0">
-                  <div className="text-[11px] text-muted-foreground">{r.t}</div>
-                  <div className="text-sm mt-0.5">{r.d}</div>
-                </div>
-              ))}
-            </Section>
-
-            <Section title="客户情绪轨迹（30 天）">
-              <div className="flex items-end h-16 gap-1">
-                {[3,4,4,3,2,2,3,3,4,4,5,4,3,3,4,4,3,2,3,4,4,5,4,3,3,4,4,4,5,5].map((v,i)=>(
-                  <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${v*20}%`, background: v>=4?"oklch(0.7 0.15 145)":v>=3?"oklch(0.7 0.15 75)":"oklch(0.65 0.2 25)" }} />
-                ))}
-              </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                <span>30天前</span><span>今日 5/5 ↗</span>
-              </div>
-            </Section>
-          </>
+            </div>
+          </div>
         )}
+        <button onClick={() => setShowQuick(s => !s)}
+          className="w-11 h-11 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[var(--shadow-soft)] flex items-center justify-center active:scale-95">
+          {showQuick ? <X className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+        </button>
+      </div>
 
-        {/* ===== 家庭视图（CM-E）===== */}
-        {tab === "family" && (
-          <>
-            <Section title="家庭结构图">
-              <div className="flex flex-col items-center gap-2">
-                {/* 上一代 */}
-                <div className="flex gap-3">
-                  {[{n:"父", a:95, dead:true}].map(m => (
-                    <FamilyNode key={m.n} {...m} />
-                  ))}
-                </div>
-                <div className="w-px h-3 bg-border" />
-                {/* 本代 */}
-                <div className="flex gap-3 items-center">
-                  <FamilyNode n={c.name[0]} a={c.age} self />
-                  <div className="text-[10px] text-muted-foreground">— 配偶 —</div>
-                  <FamilyNode n="妻" a={c.age - 2} />
-                </div>
-                <div className="w-px h-3 bg-border" />
-                {/* 下一代 */}
-                <div className="flex gap-3">
-                  <FamilyNode n="儿" a={42} authorized />
-                  <FamilyNode n="女" a={38} authorized />
-                </div>
-              </div>
-            </Section>
-
-            <Section title="各家人健康概览">
-              {[
-                { n: "妻 周阿姨", age: 70, st: "有高血压、骨质疏松", color: "warning" },
-                { n: "儿 张强",   age: 42, st: "亚健康，体检正常", color: "success" },
-                { n: "女 张敏",   age: 38, st: "孕中期 28 周",     color: "primary" },
-              ].map(m => (
-                <div key={m.n} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-sm">{m.n[0]}</div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{m.n} <span className="text-[11px] text-muted-foreground">{m.age}岁</span></div>
-                    <div className="text-[11px] text-muted-foreground">{m.st}</div>
-                  </div>
-                  <span className={`w-2 h-2 rounded-full ${m.color === "warning" ? "bg-warning" : m.color === "success" ? "bg-success" : "bg-primary"}`} />
-                </div>
-              ))}
-            </Section>
-
-            <Section title="家庭互动频率（家人间冷暖）">
-              <div className="space-y-1.5">
-                {[
-                  { p: "本人 ↔ 女儿", v: 92, hot: true },
-                  { p: "本人 ↔ 妻子", v: 78, hot: true },
-                  { p: "本人 ↔ 儿子", v: 35, hot: false },
-                ].map(r => (
-                  <div key={r.p}>
-                    <div className="flex justify-between text-xs mb-1"><span>{r.p}</span><span className="text-muted-foreground">{r.v}%</span></div>
-                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                      <div className="h-full" style={{ width: `${r.v}%`, background: r.hot ? "oklch(0.65 0.2 25)" : "oklch(0.7 0.05 230)" }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="紧急联系人">
-              {[
-                { n: "张敏（女儿）", t: "紧急", p: "138-0000-1234" },
-                { n: "张强（儿子）", t: "日常", p: "139-1111-5678" },
-              ].map(m => (
-                <div key={m.n} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <div className="flex-1">
-                    <div className="text-sm">{m.n} <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded ${m.t === "紧急" ? "bg-danger/10 text-danger" : "bg-secondary text-muted-foreground"}`}>{m.t}</span></div>
-                    <div className="text-[11px] text-muted-foreground">{m.p}</div>
-                  </div>
-                  <button onClick={() => toast.success(`正在拨打 ${m.n}`)} className="p-2 rounded-full bg-primary/10"><Phone className="w-3.5 h-3.5 text-primary" /></button>
-                </div>
-              ))}
-            </Section>
-
-            <Section title="授权关系（谁看得到谁的数据）">
-              <div className="space-y-1.5 text-sm">
-                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">允许</span>女儿张敏 → 全部数据</div>
-                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">允许</span>妻子 → 用药 + 复诊提醒</div>
-                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-secondary text-muted-foreground">禁用</span>儿子 → 暂未授权</div>
-              </div>
-            </Section>
-          </>
-        )}
-
-        {/* ===== 服务记录 ===== */}
-        {tab === "log" && (
-          <>
-            <Section title="五人团">
-              <div className="space-y-2">
-                {fivePersonTeam.map(m => (
-                  <div key={m.role} className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-xs">{m.name[0]}</div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{m.name}<span className="ml-1 text-[11px] text-muted-foreground">{m.role}</span></div>
-                      <div className="text-[11px] text-muted-foreground">{m.desc}</div>
-                    </div>
-                    <button onClick={() => toast.info(`已发起与 ${m.name} 的协作`)} className="p-1.5 rounded-full bg-primary/10">
-                      <MessageSquare className="w-3.5 h-3.5 text-primary" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </Section>
-            <Section title="服务记录">
-              {[
-                { t: "今天 08:30", d: "电话回访低血糖处置，已恢复" },
-                { t: "昨天 19:00", d: "推送晚餐建议（低 GI）" },
-                { t: "前天 15:20", d: "完成 MDT 会诊纪要" },
-                { t: "5/10",      d: "上门服务 + 健康宣教" },
-                { t: "5/08",      d: "服务包权益使用提醒" },
-              ].map((l, i) => (
-                <div key={i} className="py-2 border-b border-border last:border-0">
-                  <div className="text-[11px] text-muted-foreground">{l.t}</div>
-                  <div className="text-sm mt-0.5">{l.d}</div>
-                </div>
-              ))}
-            </Section>
-          </>
-        )}
+      {/* 底部悬浮：变化雷达最近事件 */}
+      <div className="absolute bottom-0 inset-x-0 z-20 px-3 py-2 bg-card/95 backdrop-blur border-t border-border">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1 shrink-0"><Activity className="w-3 h-3 text-danger" />变化雷达</span>
+          {[
+            { p: "P0", t: "HbA1c ↑0.6",  c: "danger" },
+            { p: "P1", t: "家人互动 -40%", c: "warning" },
+            { p: "P1", t: "下周三生日",   c: "primary" },
+            { p: "P0", t: "30 天后到期",  c: "danger" },
+          ].map((a, i) => (
+            <button key={i} onClick={() => { setTab("history"); toast.info(a.t); }}
+              className={`shrink-0 text-[10px] px-2 py-1 rounded-full border ${
+                a.c === "danger" ? "border-danger/30 bg-danger/5 text-danger" :
+                a.c === "warning" ? "border-warning/40 bg-warning/5 text-[oklch(0.5_0.13_75)]" :
+                "border-primary/30 bg-primary/5 text-primary"
+              }`}>
+              <b className="mr-1">{a.p}</b>{a.t}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* === 进入弹窗：客户简介 === */}
