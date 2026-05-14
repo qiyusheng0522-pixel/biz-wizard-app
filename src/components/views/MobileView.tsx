@@ -946,6 +946,360 @@ function FamilyNode({ n, a, self, dead, authorized }: { n: string; a: number; se
   );
 }
 
+/* ============================================================
+ * 沟通时间线（CM-C）
+ *  · 垂直时间线，按日期倒序
+ *  · 每条触点：类型图标 + 时长 + 摘要 + 情绪识别 + 是否真温度
+ *  · 可按类型筛选；点击展开原始内容（录音回放 / 文字记录）
+ * ============================================================ */
+function CommunicationTimeline() {
+  type TT = "电话" | "IM" | "视频" | "上门" | "语音";
+  const all: { t: string; type: TT; icon: typeof Phone; dur: string; sum: string; mood: "正向" | "中性" | "负向"; warm: boolean; raw: { kind: "audio" | "text"; body: string } }[] = [
+    { t: "今天 08:30", type: "电话", icon: Phone,         dur: "5'12\"", sum: "低血糖处置回访，客户确认已恢复",       mood: "正向", warm: true,  raw: { kind: "audio", body: "[录音] 早上好，您现在感觉怎么样？……（5 分 12 秒）" } },
+    { t: "昨天 19:00", type: "IM",   icon: MessageSquare, dur: "12 条",  sum: "推送晚餐建议（低 GI），客户已收藏",   mood: "中性", warm: false, raw: { kind: "text",  body: "健管师：今天晚餐建议\n客户：好的谢谢\n健管师：[食谱图片]\n客户：[已收藏]" } },
+    { t: "5/12 14:30", type: "视频", icon: Video,         dur: "32'15\"", sum: "MDT 多学科会诊，方案已同步",         mood: "正向", warm: true,  raw: { kind: "audio", body: "[视频回放] 赵主任、钱药师、健管师与客户共同讨论用药方案……" } },
+    { t: "5/10 10:00", type: "上门", icon: HomeIcon,      dur: "45'",    sum: "上门测量血糖 + 健康教育",            mood: "正向", warm: true,  raw: { kind: "text",  body: "上门服务记录：测得空腹血糖 6.2，血压 132/82。完成饮食宣教。" } },
+    { t: "5/08 09:15", type: "语音", icon: Mic,           dur: "23\"",   sum: "用药提醒语音留言",                    mood: "中性", warm: false, raw: { kind: "audio", body: "[语音留言 23 秒] 别忘了餐后服用二甲双胍哦～" } },
+    { t: "5/05 21:00", type: "IM",   icon: MessageSquare, dur: "3 条",   sum: "客户主动询问失眠问题，回复改善建议", mood: "负向", warm: true,  raw: { kind: "text",  body: "客户：我最近又睡不着了\n健管师：可以试试睡前 1 小时不看手机……" } },
+  ];
+  const types: ("全部" | TT)[] = ["全部", "电话", "IM", "视频", "上门", "语音"];
+  const [filter, setFilter] = useState<(typeof types)[number]>("全部");
+  const [open, setOpen] = useState<Record<number, boolean>>({});
+  const list = all.filter(x => filter === "全部" || x.type === filter);
+  const moodColor = (m: string) => m === "正向" ? "text-success" : m === "负向" ? "text-danger" : "text-muted-foreground";
+  return (
+    <>
+      <Section title="AI 历史触点摘要">
+        <p className="text-sm leading-relaxed text-foreground">
+          近 30 天共触达 <b>14 次</b>（电话 4、IM 8、视频 1、上门 1）。
+          主要话题：<span className="text-primary">血糖控制</span>、
+          <span className="text-primary">用药依从性</span>、
+          <span className="text-primary">情绪关怀</span>。客户最关心：
+          <span className="text-warning">"夜间低血糖如何避免"</span>。
+        </p>
+      </Section>
+      <Section title="沟通时间线 · 倒序">
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          {types.map(t => (
+            <Chip key={t} active={filter === t} onClick={() => setFilter(t)}>{t}</Chip>
+          ))}
+        </div>
+        <div className="mt-2">
+          {list.map((e, i) => {
+            const Icon = e.icon;
+            const isOpen = !!open[i];
+            return (
+              <div key={i} className="flex gap-3 py-2 border-b border-border last:border-0">
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center"><Icon className="w-3.5 h-3.5 text-primary" /></div>
+                  <div className="flex-1 w-px bg-border mt-1" />
+                </div>
+                <div className="flex-1 pb-1">
+                  <button onClick={() => setOpen(o => ({ ...o, [i]: !o[i] }))} className="w-full text-left">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary">{e.type}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{e.dur}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded bg-secondary ${moodColor(e.mood)}`}>情绪 · {e.mood}</span>
+                      {e.warm && <span className="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger flex items-center gap-0.5"><Flame className="w-2.5 h-2.5" />真温度</span>}
+                      <span className="ml-auto text-[11px] text-muted-foreground flex items-center gap-1">{e.t}<ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`} /></span>
+                    </div>
+                    <div className="text-sm mt-1">{e.sum}</div>
+                  </button>
+                  {isOpen && (
+                    <div className="mt-2 rounded-lg bg-secondary/60 p-2.5">
+                      {e.raw.kind === "audio" ? (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => toast.success("正在播放…")} className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"><Play className="w-3.5 h-3.5" /></button>
+                          <div className="flex-1 h-1 rounded-full bg-card overflow-hidden"><div className="h-full bg-primary w-1/3" /></div>
+                          <span className="text-[10px] text-muted-foreground">{e.dur}</span>
+                        </div>
+                      ) : (
+                        <pre className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans text-foreground">{e.raw.body}</pre>
+                      )}
+                      <div className="text-[10px] text-muted-foreground mt-1.5 italic">{e.raw.body.startsWith("[") ? "" : "原始记录"}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {list.length === 0 && <div className="py-6 text-center text-xs text-muted-foreground">该类型暂无触点</div>}
+        </div>
+      </Section>
+      <Section title="客户情绪轨迹（30 天）">
+        <div className="flex items-end h-16 gap-1">
+          {[3,4,4,3,2,2,3,3,4,4,5,4,3,3,4,4,3,2,3,4,4,5,4,3,3,4,4,4,5,5].map((v,i)=>(
+            <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${v*20}%`, background: v>=4?"oklch(0.7 0.15 145)":v>=3?"oklch(0.7 0.15 75)":"oklch(0.65 0.2 25)" }} />
+          ))}
+        </div>
+        <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+          <span>30 天前</span><span>今日 5/5 ↗</span>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ============================================================
+ * 家庭视图（CM-E）
+ *  · 中央：客户本人
+ *  · 周围：家人节点（节点大小 = 互动频率冷热图）
+ *  · 点击家人节点 → 弹该家人健康概览
+ *  · 右侧：家庭关键事件日历
+ * ============================================================ */
+function FamilyView({ selfName, selfAge }: { selfName: string; selfAge: number }) {
+  type Member = { name: string; rel: string; age: number; freq: number; isQt: boolean; status: string; tone: "danger" | "warning" | "success" | "primary" | "muted"; auth: "全部" | "部分" | "无" };
+  const family: Member[] = [
+    { name: "周阿姨", rel: "妻子", age: selfAge - 2, freq: 92, isQt: true,  status: "高血压、骨质疏松，规律服药", tone: "warning", auth: "部分" },
+    { name: "张敏",   rel: "女儿", age: 38,          freq: 88, isQt: true,  status: "孕中期 28 周，产检正常",     tone: "primary", auth: "全部" },
+    { name: "张强",   rel: "儿子", age: 42,          freq: 35, isQt: false, status: "未注册，年度体检无异常",     tone: "success", auth: "无" },
+    { name: "父",     rel: "父亲", age: 95,          freq: 0,  isQt: false, status: "已故",                       tone: "muted",   auth: "无" },
+    { name: "孙",     rel: "外孙", age: 6,           freq: 60, isQt: false, status: "上幼儿园，活泼好动",         tone: "success", auth: "无" },
+  ];
+  const [picked, setPicked] = useState<Member | null>(null);
+  const events = [
+    { d: "5/15", t: "周阿姨 高血压复诊", c: "warning" },
+    { d: "5/18", t: "本人 生日 🎂",        c: "primary" },
+    { d: "5/22", t: "张敏 产检",           c: "primary" },
+    { d: "6/01", t: "外孙 儿童节",         c: "success" },
+    { d: "6/15", t: "父亲忌日 · 注意情绪", c: "danger" },
+  ];
+  // 圆周布局
+  const R = 95;
+  const cx = 130, cy = 120;
+  const positioned = family.map((m, i) => {
+    const angle = (i / family.length) * Math.PI * 2 - Math.PI / 2;
+    return { ...m, x: cx + Math.cos(angle) * R, y: cy + Math.sin(angle) * R };
+  });
+  const sizeFor = (freq: number) => 30 + (freq / 100) * 22; // 30-52 px
+  const colorFor = (freq: number) =>
+    freq >= 70 ? "oklch(0.65 0.2 25)" :
+    freq >= 40 ? "oklch(0.78 0.15 75)" :
+    freq > 0   ? "oklch(0.78 0.05 230)" :
+                 "oklch(0.85 0.02 240)";
+  return (
+    <>
+      <Section title="家庭关系图（节点大小 = 互动频率）">
+        <div className="relative w-full" style={{ height: 250 }}>
+          {/* 连线 */}
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 260 250">
+            {positioned.map((m, i) => (
+              <line key={i} x1={cx} y1={cy} x2={m.x} y2={m.y}
+                stroke={colorFor(m.freq)} strokeOpacity={0.5} strokeWidth={Math.max(1, m.freq / 30)} strokeDasharray={m.freq === 0 ? "3 3" : ""} />
+            ))}
+          </svg>
+          {/* 中心：本人 */}
+          <div className="absolute" style={{ left: cx - 28, top: cy - 28 }}>
+            <div className="w-14 h-14 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground flex flex-col items-center justify-center shadow-[var(--shadow-soft)]">
+              <span className="text-base font-semibold leading-none">{selfName[0]}</span>
+              <span className="text-[9px] opacity-80 mt-0.5">本人</span>
+            </div>
+          </div>
+          {/* 家人节点 */}
+          {positioned.map((m, i) => {
+            const sz = sizeFor(m.freq);
+            return (
+              <button key={i} onClick={() => setPicked(m)} title={`${m.rel} · 互动 ${m.freq}%`}
+                className="absolute rounded-full flex flex-col items-center justify-center shadow active:scale-95 transition"
+                style={{ left: m.x - sz / 2, top: m.y - sz / 2, width: sz, height: sz, background: colorFor(m.freq), color: "white" }}>
+                <span className="text-[11px] font-medium leading-none">{m.name[0]}</span>
+                <span className="text-[8px] opacity-90 leading-none mt-0.5">{m.rel}</span>
+                {m.isQt && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-card text-primary text-[8px] flex items-center justify-center border border-card font-bold">蜻</span>}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground justify-center mt-1">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: "oklch(0.65 0.2 25)" }} />高频</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: "oklch(0.78 0.15 75)" }} />中频</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: "oklch(0.78 0.05 230)" }} />低频</span>
+          <span className="flex items-center gap-1"><span className="text-primary font-bold">蜻</span>蜻蜓用户</span>
+        </div>
+      </Section>
+
+      <Section title="家庭关键事件日历">
+        <div className="space-y-1.5">
+          {events.map((e, i) => (
+            <div key={i} className="flex items-center gap-3 py-1.5 border-b border-border last:border-0">
+              <div className="w-12 text-center">
+                <div className="text-[10px] text-muted-foreground">{e.d.split("/")[0]} 月</div>
+                <div className="text-base font-semibold leading-none">{e.d.split("/")[1]}</div>
+              </div>
+              <div className={`w-1 h-8 rounded-full ${
+                e.c === "danger" ? "bg-danger" : e.c === "warning" ? "bg-warning" : e.c === "success" ? "bg-success" : "bg-primary"
+              }`} />
+              <div className="flex-1 text-sm">{e.t}</div>
+              <button onClick={() => toast.success("已加入提醒")} className="text-[11px] text-primary">提醒</button>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="授权关系（谁看得到谁的数据）">
+        <div className="space-y-1.5 text-sm">
+          {family.filter(f => f.tone !== "muted").map(f => (
+            <div key={f.name} className="flex items-center gap-2">
+              <span className={`px-1.5 py-0.5 text-[10px] rounded ${
+                f.auth === "全部" ? "bg-primary/10 text-primary" :
+                f.auth === "部分" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
+                "bg-secondary text-muted-foreground"
+              }`}>{f.auth === "无" ? "禁用" : "允许"}</span>
+              {f.rel} {f.name} → {f.auth === "全部" ? "全部数据" : f.auth === "部分" ? "用药 + 复诊提醒" : "暂未授权"}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* 家人健康概览弹窗 */}
+      {picked && (
+        <div className="absolute inset-0 z-30 bg-black/60 flex items-end" onClick={() => setPicked(null)}>
+          <div className="w-full bg-card rounded-t-3xl p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-base font-medium text-white" style={{ background: colorFor(picked.freq) }}>{picked.name[0]}</div>
+              <div className="flex-1">
+                <div className="text-base font-semibold flex items-center gap-1.5">
+                  {picked.name}
+                  <span className="text-[11px] text-muted-foreground font-normal">{picked.rel} · {picked.age}岁</span>
+                  {picked.isQt && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">蜻蜓用户</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">与本人互动频率 · {picked.freq}%</div>
+              </div>
+              <button onClick={() => setPicked(null)} className="p-1.5"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="rounded-xl bg-secondary/60 p-3 text-sm">{picked.status}</div>
+            {picked.isQt ? (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <Metric label="血压" value="138/86" />
+                <Metric label="情绪" value="3.6/5" />
+                <Metric label="服药率" value="92%" />
+              </div>
+            ) : (
+              <div className="mt-3 rounded-xl bg-warning/5 border border-warning/20 p-3 text-[12px] text-[oklch(0.45_0.13_75)]">
+                该家人尚未注册蜻蜓康健家，无健康数据。可邀请其加入家庭组。
+              </div>
+            )}
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => toast.success(`正在拨打 ${picked.name}`)} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm flex items-center justify-center gap-1.5"><Phone className="w-4 h-4" />联系</button>
+              <button onClick={() => toast.info(picked.isQt ? "已发送家庭关怀任务" : "邀请短信已发送")} className="flex-1 py-2.5 rounded-xl bg-secondary text-sm">{picked.isQt ? "发起协同" : "邀请加入"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ===== 报告 Tab ===== */
+function ReportTab() {
+  const reports = [
+    { d: "2026/05", t: "5 月健康月报", tags: ["糖尿病", "情绪"], status: "新" },
+    { d: "2026/04", t: "4 月健康月报", tags: ["糖尿病"],         status: "已读" },
+    { d: "2026/Q1", t: "Q1 季度评估",  tags: ["综合"],           status: "已读" },
+    { d: "2026/03", t: "MDT 会诊纪要 #028", tags: ["MDT"],       status: "已读" },
+    { d: "2026/02", t: "年度体检解读",  tags: ["体检"],           status: "已读" },
+  ];
+  return (
+    <>
+      <Section title="健康报告">
+        <div className="space-y-2">
+          {reports.map((r, i) => (
+            <button key={i} onClick={() => toast.info(`已打开 ${r.t}`)}
+              className="w-full rounded-xl border border-border p-3 flex items-center gap-3 active:bg-secondary text-left">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileText className="w-4 h-4 text-primary" /></div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium flex items-center gap-1.5">
+                  {r.t}
+                  {r.status === "新" && <span className="text-[10px] px-1.5 py-0 rounded bg-danger/10 text-danger">NEW</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{r.d} · {r.tags.join(" / ")}</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ===== 问诊 Tab ===== */
+function InquiryTab() {
+  const list = [
+    { d: "5/14", who: "赵主任 · 责任医师", topic: "复诊建议", body: "继续当前方案，2 周后复查 HbA1c。如夜间再次出现低血糖立即来诊。" },
+    { d: "5/12", who: "MDT 多学科",       topic: "联合方案", body: "营养师调整碳水比例 → 45%；药师下调二甲双胍至餐后 0.5g。" },
+    { d: "4/28", who: "钱药师",           topic: "用药咨询", body: "可餐后服用，避免空腹引起低血糖；监测晨起血糖。" },
+    { d: "4/15", who: "赵主任",           topic: "图文问诊", body: "上传眼底照片 → 排查糖网。建议眼科专科就诊。" },
+  ];
+  return (
+    <>
+      <Section title="问诊与医嘱">
+        <div className="space-y-2">
+          {list.map((r, i) => (
+            <div key={i} className="rounded-xl border border-border p-3">
+              <div className="flex items-center gap-2">
+                <Stethoscope className="w-3.5 h-3.5 text-primary" />
+                <span className="text-sm font-medium">{r.topic}</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">{r.d}</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{r.who}</div>
+              <p className="text-sm mt-1.5 leading-relaxed">{r.body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <Section title="发起新问诊">
+        <div className="grid grid-cols-3 gap-2">
+          <ActionTile icon={MessageSquare} label="图文问诊" onClick={() => toast.success("已发起图文问诊")} />
+          <ActionTile icon={Video}         label="视频问诊" onClick={() => toast.success("视频问诊已预约")} />
+          <ActionTile icon={Stethoscope}   label="MDT 申请" onClick={() => toast.success("MDT 申请已提交")} />
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ===== 用药 Tab ===== */
+function MedTab() {
+  const meds = [
+    { n: "二甲双胍",   d: "0.5g · 一日两次 · 餐后",  adh: 92, next: "今日 19:00", warn: "" },
+    { n: "厄贝沙坦",   d: "150mg · 一日一次 · 早晨", adh: 88, next: "明日 07:00", warn: "" },
+    { n: "阿托伐他汀", d: "20mg · 睡前",             adh: 76, next: "今晚 22:00", warn: "上周漏服 2 次" },
+  ];
+  return (
+    <>
+      <Section title="当前用药">
+        <div className="space-y-2">
+          {meds.map(m => (
+            <div key={m.n} className="rounded-xl border border-border p-3">
+              <div className="flex items-center gap-2">
+                <Pill className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">{m.n}</span>
+                <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${m.adh >= 90 ? "bg-success/10 text-success" : m.adh >= 80 ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" : "bg-danger/10 text-danger"}`}>依从 {m.adh}%</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1">{m.d}</div>
+              <div className="flex items-center gap-3 mt-2 text-[11px]">
+                <span className="flex items-center gap-1 text-muted-foreground"><Clock className="w-3 h-3" />下次 {m.next}</span>
+                {m.warn && <span className="text-danger flex items-center gap-1"><AlertCircle className="w-3 h-3" />{m.warn}</span>}
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+                <button onClick={() => toast.success(`已推送 ${m.n} 服药提醒`)} className="py-1.5 rounded-lg bg-secondary text-[11px]">推送提醒</button>
+                <button onClick={() => toast.info("已询问钱药师")} className="py-1.5 rounded-lg bg-secondary text-[11px]">咨询药师</button>
+                <button onClick={() => toast.success("已记录已服")} className="py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px]">已服</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <Section title="用药相互作用 / 警示">
+        <div className="rounded-lg bg-warning/5 border border-warning/20 p-3 text-[12px] leading-relaxed">
+          <div className="flex items-center gap-1 text-[oklch(0.45_0.13_75)] font-medium mb-1"><AlertCircle className="w-3 h-3" />潜在风险</div>
+          二甲双胍 + 厄贝沙坦 联合使用时需监测肾功能；阿托伐他汀夜间服用，避免与西柚同服。
+        </div>
+      </Section>
+    </>
+  );
+}
+
 /* 信息行 */
 function InfoRow({ label, value, icon: Icon }: { label: string; value: string; icon?: typeof MapPin }) {
   return (
