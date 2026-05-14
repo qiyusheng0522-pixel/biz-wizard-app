@@ -609,16 +609,20 @@ function TaskDetail({
  * ============================================================ */
 function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
   const c = customers.find(x => x.id === id) as Customer;
-  const [tab, setTab] = useState<"overview" | "archive" | "trend" | "history" | "family" | "log">("overview");
+  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "report" | "inquiry" | "med">("basic");
   // 进入患者详情先弹窗展示一段简介
   const [showIntro, setShowIntro] = useState(true);
   const [trendRange, setTrendRange] = useState<"30" | "90" | "custom">("30");
+  const [showQuick, setShowQuick] = useState(false);
+  // 温度指数（演示数据）
+  const temperature = c.layer === "urgent" ? 62 : c.layer === "abnormal" ? 74 : c.layer === "churnRisk" ? 38 : 88;
+  const tempTone = temperature >= 80 ? { txt: "text-success", bar: "bg-success", l: "温暖" } : temperature >= 60 ? { txt: "text-[oklch(0.5_0.13_75)]", bar: "bg-warning", l: "需关注" } : { txt: "text-danger", bar: "bg-danger", l: "冷淡" };
 
   // AI 一句话简介（模拟根据档案合成）
   const intro = `${c.name}，${c.age}岁${c.gender}性，${c.diseases.join("、")}患者，${c.package}。${c.note}。最近一次触达：${c.lastTouch}。建议关注：用药依从性 + 情绪状态。`;
 
   return (
-    <div>
+    <div className="relative pb-16">
       <PageHeader title="客户档案" pop={pop}
         right={<button onClick={() => toast.info("已加入星标客户")} className="p-1.5 rounded-lg hover:bg-secondary"><Star className="w-5 h-5" /></button>} />
       <div className="p-4 space-y-4">
@@ -635,6 +639,23 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             </div>
             <span className={`text-[10px] px-1.5 py-0.5 rounded bg-white/20`}>{layerMeta[c.layer].label}</span>
           </div>
+          {/* AI 一句话简介 + 温度指数 + 私人备注入口 */}
+          <div className="mt-3 rounded-lg bg-white/12 p-2.5">
+            <div className="text-[10px] opacity-80 flex items-center gap-1"><Sparkles className="w-3 h-3" />AI 一句话</div>
+            <div className="text-[12px] mt-0.5 leading-relaxed line-clamp-2">{intro}</div>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex-1 rounded-lg bg-white/12 px-2.5 py-2">
+              <div className="flex items-center justify-between text-[10px] opacity-80"><span className="flex items-center gap-1"><Flame className="w-3 h-3" />温度指数</span><span>{tempTone.l}</span></div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="text-lg font-semibold leading-none">{temperature}</div>
+                <div className="flex-1 h-1.5 rounded-full bg-white/20 overflow-hidden"><div className="h-full bg-white" style={{ width: `${temperature}%` }} /></div>
+              </div>
+            </div>
+            <button onClick={() => toast.info("打开私人备注")} className="rounded-lg bg-white/15 px-2.5 py-2 text-[11px] flex items-center gap-1 active:bg-white/25">
+              <BookMarked className="w-3.5 h-3.5" />私人备注
+            </button>
+          </div>
           <div className="grid grid-cols-4 gap-2 mt-3">
             <ActionTile dark icon={Phone} label="电话" onClick={() => toast.success(`正在拨打 ${c.name}`)} />
             <ActionTile dark icon={MessageSquare} label="IM" onClick={() => push({ name: "chat", id: c.id })} />
@@ -643,15 +664,17 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
           </div>
         </div>
 
-        {/* Tab */}
+        {/* Tab — 基本/健康/沟通/数据/家庭/报告/问诊/用药 */}
         <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs overflow-x-auto">
           {[
-            { id: "overview", l: "概览" },
-            { id: "archive",  l: "档案" },
-            { id: "trend",    l: "趋势" },
-            { id: "history",  l: "沟通" },
-            { id: "family",   l: "家庭" },
-            { id: "log",      l: "记录" },
+            { id: "basic",   l: "基本" },
+            { id: "health",  l: "健康" },
+            { id: "history", l: "沟通" },
+            { id: "trend",   l: "数据" },
+            { id: "family",  l: "家庭" },
+            { id: "report",  l: "报告" },
+            { id: "inquiry", l: "问诊" },
+            { id: "med",     l: "用药" },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
               className={`flex-1 py-1.5 rounded-lg whitespace-nowrap ${tab === t.id ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
@@ -660,8 +683,8 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
           ))}
         </div>
 
-        {/* ===== 概览 ===== */}
-        {tab === "overview" && (
+        {/* ===== 基本 ===== */}
+        {tab === "basic" && (
           <>
             {/* 基本信息 */}
             <Section title="基本信息">
@@ -710,8 +733,8 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
           </>
         )}
 
-        {/* ===== 档案 ===== */}
-        {tab === "archive" && (
+        {/* ===== 健康（病种/过敏/既往史 + 服务包 + 生活偏好） ===== */}
+        {tab === "health" && (
           <>
             <Section title="健康档案">
               <div className="space-y-3 text-sm">
