@@ -245,11 +245,32 @@ function MHome({
  * ============================================================ */
 function MClient({ push }: { push: (s: Stack) => void }) {
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "urgent" | "abnormal" | "stable" | "new">("all");
+  const [filter, setFilter] = useState<"all" | "urgent" | "abnormal" | "stable" | "new" | "churnRisk">("all");
+  const [showAdv, setShowAdv] = useState(false);
+  // 多条件筛选：病种 / 年龄段 / 服务包 / 状态
+  const [adv, setAdv] = useState<{ disease: string[]; ageRange: string; pkg: string[]; status: string[] }>({
+    disease: [], ageRange: "all", pkg: [], status: [],
+  });
+  const allDiseases = Array.from(new Set(customers.flatMap(c => c.diseases)));
+  const allPkgs = ["体验包", "银卡", "金卡"];
+  const ageMatch = (age: number) => {
+    if (adv.ageRange === "all") return true;
+    if (adv.ageRange === "<45") return age < 45;
+    if (adv.ageRange === "45-60") return age >= 45 && age <= 60;
+    if (adv.ageRange === "60-70") return age > 60 && age <= 70;
+    if (adv.ageRange === ">70") return age > 70;
+    return true;
+  };
   const filtered = customers.filter(c =>
     (filter === "all" || c.layer === filter) &&
-    (q === "" || c.name.includes(q) || c.diseases.some(d => d.includes(q)))
+    (q === "" || c.name.includes(q) || c.diseases.some(d => d.includes(q))) &&
+    (adv.disease.length === 0 || adv.disease.some(d => c.diseases.includes(d))) &&
+    ageMatch(c.age) &&
+    (adv.pkg.length === 0 || adv.pkg.some(p => c.package.includes(p))) &&
+    (adv.status.length === 0 || adv.status.includes(c.layer))
   );
+  const advCount =
+    adv.disease.length + (adv.ageRange !== "all" ? 1 : 0) + adv.pkg.length + adv.status.length;
   return (
     <div className="px-4 py-3 space-y-3">
       <div className="flex items-center gap-2">
@@ -261,6 +282,12 @@ function MClient({ push }: { push: (s: Stack) => void }) {
             placeholder="搜索客户姓名 / 病种"
           />
         </button>
+        <button onClick={() => setShowAdv(true)} className="relative p-2.5 rounded-xl bg-secondary text-foreground active:scale-95 transition">
+          <Filter className="w-4 h-4" />
+          {advCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">{advCount}</span>
+          )}
+        </button>
         <button onClick={() => push({ name: "addCustomer" })} className="p-2.5 rounded-xl bg-primary text-primary-foreground active:scale-95 transition">
           <Plus className="w-4 h-4" />
         </button>
@@ -271,7 +298,18 @@ function MClient({ push }: { push: (s: Stack) => void }) {
         <Chip active={filter === "abnormal"} onClick={() => setFilter("abnormal")}>异常 2</Chip>
         <Chip active={filter === "stable"} onClick={() => setFilter("stable")}>稳定 72</Chip>
         <Chip active={filter === "new"} onClick={() => setFilter("new")}>新入 1</Chip>
+        <Chip active={filter === "churnRisk"} onClick={() => setFilter("churnRisk")}>离网倾向 3</Chip>
       </div>
+      {advCount > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">已筛选：</span>
+          {[...adv.disease, ...adv.pkg, ...adv.status.map(s => layerMeta[s as CustomerLayer]?.label || s)].map(t => (
+            <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">{t}</span>
+          ))}
+          {adv.ageRange !== "all" && <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">{adv.ageRange}岁</span>}
+          <button onClick={() => setAdv({ disease: [], ageRange: "all", pkg: [], status: [] })} className="text-[11px] text-muted-foreground underline ml-auto">清空</button>
+        </div>
+      )}
       <div className="space-y-2">
         {filtered.map(c => (
           <button key={c.id} onClick={() => push({ name: "customer", id: c.id })}
@@ -295,6 +333,15 @@ function MClient({ push }: { push: (s: Stack) => void }) {
           <div className="text-center py-12 text-sm text-muted-foreground">未找到客户</div>
         )}
       </div>
+      {showAdv && (
+        <AdvancedFilter
+          allDiseases={allDiseases}
+          allPkgs={allPkgs}
+          adv={adv}
+          onChange={setAdv}
+          onClose={() => setShowAdv(false)}
+        />
+      )}
     </div>
   );
 }
