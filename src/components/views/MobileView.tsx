@@ -8,6 +8,7 @@ import {
   Plus, Filter, MoreHorizontal, FileText, Pill, Activity, Calendar, Star, Copy, BookOpen,
   TrendingUp, Award, Stethoscope, ClipboardList, Settings, LogOut, ShieldCheck, Clock,
   X, MapPin, AlertCircle, Heart, Users2, Package, Smile, BookMarked, Gift, Clipboard, Home as HomeIcon,
+  RotateCw, ChevronDown, Play, CalendarDays, Flame,
 } from "lucide-react";
 
 /**
@@ -132,6 +133,22 @@ function MHome({
   push, taskState, toggleTask,
 }: { push: (s: Stack) => void; taskState: Record<string, boolean>; toggleTask: (id: string) => void }) {
   const doneCount = Object.values(taskState).filter(Boolean).length;
+  // 任务来源 Tab：AI / 客户主动 / 协同 / 自建 / 节日 / 续费
+  const [taskSrc, setTaskSrc] = useState<"all" | "ai" | "client" | "team" | "self" | "holiday" | "renew">("all");
+  // 节日 + 续费类任务（追加到核心 tasks 之外，仅前端模拟）
+  const extraTasks = [
+    { id: "X-1", src: "client" as const,  customer: "陈姐",  title: "客户主动求助：失眠 3 天怎么办",   priority: "P1", due: "今日", tag: "客户主动" },
+    { id: "X-2", src: "team" as const,    customer: "王奶奶", title: "钱药师协同：化疗止吐方案确认",     priority: "P1", due: "11:00", tag: "协同任务" },
+    { id: "X-3", src: "self" as const,    customer: "李叔",  title: "自建：出差归来首次复盘",            priority: "P2", due: "本周", tag: "自建" },
+    { id: "X-4", src: "holiday" as const, customer: "周阿姨", title: "母亲节祝福 + 子女联动问候",        priority: "P2", due: "5/12", tag: "节日关怀" },
+    { id: "X-5", src: "renew" as const,   customer: "刘伯",  title: "服务包 12 天后到期 · 续费方案推送", priority: "P1", due: "本周", tag: "续费机会" },
+  ];
+  // 把核心 tasks 标记为 ai 来源（除 MDT/医师指派 → team；客户求助 → client）
+  const merged = [
+    ...tasks.map(t => ({ id: t.id, src: t.source === "医师指派" ? "team" as const : t.source === "客户求助" ? "client" as const : "ai" as const, customer: t.customer, title: t.title, priority: t.priority, due: t.due, tag: t.source })),
+    ...extraTasks,
+  ];
+  const visibleTasks = taskSrc === "all" ? merged : merged.filter(t => t.src === taskSrc);
   return (
     <div className="px-4 py-3 space-y-4">
       {/* 问候卡 */}
@@ -175,51 +192,44 @@ function MHome({
         })}
       </div>
 
-      {/* 今日关注 */}
+      {/* 今日关注 — 横滑卡片 / 可翻面 / 一键操作 */}
       <section>
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-semibold flex items-center gap-1.5 text-sm"><AlertTriangle className="w-4 h-4 text-danger" />今日关注</h2>
-          <button className="text-xs text-primary" onClick={() => toast.info("已切换至「客户」Tab 的关注列表")}>查看全部</button>
+          <span className="text-[11px] text-muted-foreground">左右滑动 · 点 ↻ 翻面看上下文</span>
         </div>
-        <div className="space-y-2">
-          {customers.filter(c => c.layer === "urgent" || c.layer === "abnormal").map(c => (
-            <div key={c.id} className="rounded-xl bg-card border border-border p-3 flex items-center gap-3">
-              <button onClick={() => push({ name: "customer", id: c.id })} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-medium">{c.name[0]}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{c.name}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground truncate mt-0.5">{c.note}</div>
-                </div>
-              </button>
-              <button onClick={() => toast.success(`正在拨打 ${c.name} ...`)} className="p-2 rounded-full bg-primary/10 active:bg-primary/20">
-                <Phone className="w-4 h-4 text-primary" />
-              </button>
-              <button onClick={() => push({ name: "chat", id: c.id })} className="p-2 rounded-full bg-secondary active:bg-muted">
-                <MessageSquare className="w-4 h-4 text-foreground" />
-              </button>
-            </div>
-          ))}
-        </div>
+        <FocusCarousel push={push} />
       </section>
 
-      {/* 任务清单 */}
+      {/* 工作台任务清单 — 多来源 */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-sm">AI 任务清单</h2>
+          <h2 className="font-semibold text-sm">工作台 · 任务清单</h2>
           <span className="text-xs text-muted-foreground">已完成 {doneCount}/{tasks.length}</span>
         </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          {[
+            { k: "all",     l: "全部" },
+            { k: "ai",      l: "AI 生成" },
+            { k: "client",  l: "客户主动" },
+            { k: "team",    l: "协同" },
+            { k: "self",    l: "自建" },
+            { k: "holiday", l: "节日" },
+            { k: "renew",   l: "续费到期" },
+          ].map(s => (
+            <Chip key={s.k} active={taskSrc === s.k} onClick={() => setTaskSrc(s.k as typeof taskSrc)}>{s.l}</Chip>
+          ))}
+        </div>
         <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
-          {tasks.map(t => {
+          {visibleTasks.map(t => {
             const done = taskState[t.id];
+            const isCore = tasks.some(x => x.id === t.id);
             return (
               <div key={t.id} className="px-3 py-3 flex items-center gap-2.5 active:bg-secondary/60">
-                <button onClick={(e) => { e.stopPropagation(); toggleTask(t.id); }} className="p-0.5">
+                <button onClick={(e) => { e.stopPropagation(); isCore ? toggleTask(t.id) : toast.success("任务已完成 ✓"); }} className="p-0.5">
                   {done ? <CheckCircle2 className="w-5 h-5 text-success" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
                 </button>
-                <button onClick={() => push({ name: "task", id: t.id })} className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
+                <button onClick={() => isCore ? push({ name: "task", id: t.id }) : toast.info(`${t.tag}：${t.title}`)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     t.priority === "P0" ? "bg-danger/10 text-danger" :
                     t.priority === "P1" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
@@ -227,15 +237,98 @@ function MHome({
                   }`}>{t.priority}</span>
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm ${done ? "line-through text-muted-foreground" : ""}`}>{t.title}</div>
-                    <div className="text-[10px] text-muted-foreground">{t.customer} · {t.due}</div>
+                    <div className="text-[10px] text-muted-foreground">{t.customer} · {t.due} · {t.tag}</div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
             );
           })}
+          {visibleTasks.length === 0 && (
+            <div className="py-8 text-center text-xs text-muted-foreground">该来源暂无任务</div>
+          )}
         </div>
       </section>
+    </div>
+  );
+}
+
+/* ---------- 今日关注 横滑可翻面卡片 ---------- */
+function FocusCarousel({ push }: { push: (s: Stack) => void }) {
+  const focus = customers.filter(c => c.layer === "urgent" || c.layer === "abnormal" || c.layer === "churnRisk");
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const flip = (id: string) => setFlipped(f => ({ ...f, [id]: !f[id] }));
+  return (
+    <div className="-mx-4 px-4 flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+      {focus.map(c => {
+        const tone =
+          c.layer === "urgent" ? { bar: "bg-danger", txt: "text-danger", bg: "bg-danger/5", chip: "bg-danger/10 text-danger" } :
+          c.layer === "abnormal" ? { bar: "bg-warning", txt: "text-[oklch(0.5_0.13_75)]", bg: "bg-warning/5", chip: "bg-warning/10 text-[oklch(0.5_0.13_75)]" } :
+          { bar: "bg-muted-foreground", txt: "text-muted-foreground", bg: "bg-secondary/40", chip: "bg-secondary text-muted-foreground" };
+        const summary =
+          c.layer === "urgent"   ? `凌晨血糖 ${c.metrics.bg ?? 3.8}，需紧急回访` :
+          c.layer === "abnormal" ? `${c.metrics.bp ? "血压 " + c.metrics.bp : "情绪低落"}，建议主动关怀` :
+          `断签多日，建议温柔挽回话术`;
+        const action = c.layer === "urgent" ? "立即电话 · 5 分钟内反馈" : c.layer === "abnormal" ? "上午发起视频复测" : "推送节日话题 + 服务包权益";
+        const script = c.layer === "urgent"
+          ? `"${c.name}您好，凌晨监测到血糖偏低，您现在感觉如何？"`
+          : c.layer === "abnormal"
+            ? `"${c.name}早上好～昨天的不适今天怎么样了？"`
+            : `"${c.name}好久不见～最近身体还好吗？您的健康我一直挂在心上。"`;
+        const front = (
+          <div className={`h-full flex flex-col p-3 ${tone.bg}`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-1.5 h-5 rounded-full ${tone.bar}`} />
+              <div className="w-9 h-9 rounded-full bg-card flex items-center justify-center text-sm font-medium">{c.name[0]}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate">{c.name} <span className="text-[10px] text-muted-foreground font-normal">{c.gender}·{c.age}</span></div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded ${tone.chip}`}>{layerMeta[c.layer].label}</span>
+              </div>
+              <button onClick={() => flip(c.id)} className="p-1 rounded-md bg-card/80 active:bg-card"><RotateCw className="w-3.5 h-3.5 text-muted-foreground" /></button>
+            </div>
+            <div className="mt-2 text-xs leading-relaxed text-foreground line-clamp-2">{summary}</div>
+            <div className="mt-2 rounded-lg bg-card/80 border border-border p-2">
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary" />建议动作</div>
+              <div className="text-[11px] mt-0.5 font-medium">{action}</div>
+            </div>
+            <div className="mt-2 rounded-lg bg-card/80 border border-border p-2 flex-1">
+              <div className="text-[10px] text-muted-foreground">话术预览</div>
+              <div className="text-[11px] mt-0.5 italic text-muted-foreground line-clamp-2">{script}</div>
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-1.5">
+              <button onClick={() => toast.success(`正在拨打 ${c.name}`)} className="py-1.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Phone className="w-3.5 h-3.5" /></button>
+              <button onClick={() => toast.info("视频邀请已发送")} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><Video className="w-3.5 h-3.5" /></button>
+              <button onClick={() => toast.info("按住说话…")} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><Mic className="w-3.5 h-3.5" /></button>
+              <button onClick={() => push({ name: "customer", id: c.id })} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><FileText className="w-3.5 h-3.5" /></button>
+            </div>
+          </div>
+        );
+        const back = (
+          <div className="h-full flex flex-col p-3 bg-card">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">{c.name} · 完整上下文</div>
+              <button onClick={() => flip(c.id)} className="p-1 rounded-md bg-secondary"><RotateCw className="w-3.5 h-3.5 text-muted-foreground" /></button>
+            </div>
+            <div className="mt-2 space-y-1.5 text-[11px] text-foreground overflow-y-auto flex-1">
+              <div><span className="text-muted-foreground">病种 · </span>{c.diseases.join(" / ")}</div>
+              <div><span className="text-muted-foreground">服务包 · </span>{c.package}</div>
+              <div><span className="text-muted-foreground">最近触达 · </span>{c.lastTouch}</div>
+              <div><span className="text-muted-foreground">关键备注 · </span>{c.note}</div>
+              <div><span className="text-muted-foreground">温度 · </span><span className="text-danger font-medium">82</span> · 30 天 ↘</div>
+              <div><span className="text-muted-foreground">家庭 · </span>女儿张敏（紧急） · 妻子（已授权）</div>
+              <div><span className="text-muted-foreground">医师 · </span>赵主任 · 2 周后复查 HbA1c</div>
+            </div>
+            <button onClick={() => push({ name: "customer", id: c.id })} className="mt-2 py-2 rounded-lg bg-[image:var(--gradient-primary)] text-primary-foreground text-xs">进入完整档案 →</button>
+          </div>
+        );
+        return (
+          <div key={c.id} className="snap-start shrink-0 w-[78%]">
+            <div className="rounded-2xl border border-border overflow-hidden h-[260px] shadow-[var(--shadow-card)]">
+              {flipped[c.id] ? back : front}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -516,16 +609,20 @@ function TaskDetail({
  * ============================================================ */
 function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
   const c = customers.find(x => x.id === id) as Customer;
-  const [tab, setTab] = useState<"overview" | "archive" | "trend" | "history" | "family" | "log">("overview");
+  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "report" | "inquiry" | "med">("basic");
   // 进入患者详情先弹窗展示一段简介
   const [showIntro, setShowIntro] = useState(true);
   const [trendRange, setTrendRange] = useState<"30" | "90" | "custom">("30");
+  const [showQuick, setShowQuick] = useState(false);
+  // 温度指数（演示数据）
+  const temperature = c.layer === "urgent" ? 62 : c.layer === "abnormal" ? 74 : c.layer === "churnRisk" ? 38 : 88;
+  const tempTone = temperature >= 80 ? { txt: "text-success", bar: "bg-success", l: "温暖" } : temperature >= 60 ? { txt: "text-[oklch(0.5_0.13_75)]", bar: "bg-warning", l: "需关注" } : { txt: "text-danger", bar: "bg-danger", l: "冷淡" };
 
   // AI 一句话简介（模拟根据档案合成）
   const intro = `${c.name}，${c.age}岁${c.gender}性，${c.diseases.join("、")}患者，${c.package}。${c.note}。最近一次触达：${c.lastTouch}。建议关注：用药依从性 + 情绪状态。`;
 
   return (
-    <div>
+    <div className="relative pb-16">
       <PageHeader title="客户档案" pop={pop}
         right={<button onClick={() => toast.info("已加入星标客户")} className="p-1.5 rounded-lg hover:bg-secondary"><Star className="w-5 h-5" /></button>} />
       <div className="p-4 space-y-4">
@@ -542,6 +639,23 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             </div>
             <span className={`text-[10px] px-1.5 py-0.5 rounded bg-white/20`}>{layerMeta[c.layer].label}</span>
           </div>
+          {/* AI 一句话简介 + 温度指数 + 私人备注入口 */}
+          <div className="mt-3 rounded-lg bg-white/12 p-2.5">
+            <div className="text-[10px] opacity-80 flex items-center gap-1"><Sparkles className="w-3 h-3" />AI 一句话</div>
+            <div className="text-[12px] mt-0.5 leading-relaxed line-clamp-2">{intro}</div>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="flex-1 rounded-lg bg-white/12 px-2.5 py-2">
+              <div className="flex items-center justify-between text-[10px] opacity-80"><span className="flex items-center gap-1"><Flame className="w-3 h-3" />温度指数</span><span>{tempTone.l}</span></div>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="text-lg font-semibold leading-none">{temperature}</div>
+                <div className="flex-1 h-1.5 rounded-full bg-white/20 overflow-hidden"><div className="h-full bg-white" style={{ width: `${temperature}%` }} /></div>
+              </div>
+            </div>
+            <button onClick={() => toast.info("打开私人备注")} className="rounded-lg bg-white/15 px-2.5 py-2 text-[11px] flex items-center gap-1 active:bg-white/25">
+              <BookMarked className="w-3.5 h-3.5" />私人备注
+            </button>
+          </div>
           <div className="grid grid-cols-4 gap-2 mt-3">
             <ActionTile dark icon={Phone} label="电话" onClick={() => toast.success(`正在拨打 ${c.name}`)} />
             <ActionTile dark icon={MessageSquare} label="IM" onClick={() => push({ name: "chat", id: c.id })} />
@@ -550,15 +664,17 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
           </div>
         </div>
 
-        {/* Tab */}
+        {/* Tab — 基本/健康/沟通/数据/家庭/报告/问诊/用药 */}
         <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs overflow-x-auto">
           {[
-            { id: "overview", l: "概览" },
-            { id: "archive",  l: "档案" },
-            { id: "trend",    l: "趋势" },
-            { id: "history",  l: "沟通" },
-            { id: "family",   l: "家庭" },
-            { id: "log",      l: "记录" },
+            { id: "basic",   l: "基本" },
+            { id: "health",  l: "健康" },
+            { id: "history", l: "沟通" },
+            { id: "trend",   l: "数据" },
+            { id: "family",  l: "家庭" },
+            { id: "report",  l: "报告" },
+            { id: "inquiry", l: "问诊" },
+            { id: "med",     l: "用药" },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
               className={`flex-1 py-1.5 rounded-lg whitespace-nowrap ${tab === t.id ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
@@ -567,8 +683,8 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
           ))}
         </div>
 
-        {/* ===== 概览 ===== */}
-        {tab === "overview" && (
+        {/* ===== 基本 ===== */}
+        {tab === "basic" && (
           <>
             {/* 基本信息 */}
             <Section title="基本信息">
@@ -617,8 +733,8 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
           </>
         )}
 
-        {/* ===== 档案 ===== */}
-        {tab === "archive" && (
+        {/* ===== 健康（病种/过敏/既往史 + 服务包 + 生活偏好） ===== */}
+        {tab === "health" && (
           <>
             <Section title="健康档案">
               <div className="space-y-3 text-sm">
@@ -642,21 +758,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
                     <li>· 长期高血压病史 12 年</li>
                   </ul>
                 </div>
-                <div>
-                  <div className="text-[11px] text-muted-foreground mb-1">当前用药</div>
-                  <div className="space-y-1.5">
-                    {[
-                      { n: "二甲双胍", d: "0.5g · 一日两次 · 餐后" },
-                      { n: "厄贝沙坦", d: "150mg · 一日一次 · 早晨" },
-                      { n: "阿托伐他汀", d: "20mg · 睡前" },
-                    ].map(m => (
-                      <div key={m.n} className="flex items-start gap-2 text-sm bg-secondary/40 rounded-lg px-2.5 py-1.5">
-                        <Pill className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
-                        <div><span className="font-medium">{m.n}</span><span className="ml-1 text-[11px] text-muted-foreground">{m.d}</span></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <div className="text-[11px] text-muted-foreground">当前用药请见「用药」Tab</div>
               </div>
             </Section>
 
@@ -741,212 +843,69 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
         )}
 
         {/* ===== 沟通历史（CM-C 组）===== */}
-        {tab === "history" && (
-          <>
-            <Section title="AI 历史触点摘要">
-              <p className="text-sm leading-relaxed text-foreground">
-                近 30 天共触达 <b>14 次</b>（电话 4、IM 8、视频 1、上门 1）。
-                主要话题：<span className="text-primary">血糖控制</span>、
-                <span className="text-primary">用药依从性</span>、
-                <span className="text-primary">情绪关怀</span>。客户最关心：
-                <span className="text-warning">"夜间低血糖如何避免"</span>。
-              </p>
-            </Section>
+        {tab === "history" && <CommunicationTimeline />}
 
-            <Section title="沟通时间线">
+        {tab === "family" && <FamilyView selfName={c.name} selfAge={c.age} />}
+
+        {tab === "report" && <ReportTab />}
+        {tab === "inquiry" && <InquiryTab />}
+        {tab === "med" && <MedTab />}
+      </div>
+
+      {/* 右侧固定悬浮：今日建议动作 + 快捷沟通 */}
+      <div className="absolute right-2 top-1/3 z-20 flex flex-col items-end gap-2">
+        {showQuick && (
+          <div className="bg-card border border-border rounded-xl shadow-[var(--shadow-card)] p-2.5 w-44 animate-in fade-in slide-in-from-right-2 duration-150">
+            <div className="text-[10px] text-muted-foreground flex items-center gap-1 mb-1.5"><Sparkles className="w-3 h-3 text-primary" />今日建议动作</div>
+            <div className="text-[11px] leading-relaxed mb-2">
+              · 上午 9:30 电话回访<br/>
+              · 推送低 GI 食谱<br/>
+              · 邀请女儿协同关怀
+            </div>
+            <div className="grid grid-cols-4 gap-1">
               {[
-                { t: "今天 08:30", icon: Phone,         type: "电话", d: "低血糖处置回访 5'12\"" },
-                { t: "昨天 19:00", icon: MessageSquare, type: "IM",   d: "推送晚餐建议（低 GI）" },
-                { t: "5/12 14:30", icon: Video,         type: "视频", d: "MDT 会诊参与 32'" },
-                { t: "5/10 10:00", icon: HomeIcon,      type: "上门", d: "上门测量血糖 + 健康教育" },
-                { t: "5/08 09:15", icon: Mic,           type: "语音", d: "用药提醒语音 23\"" },
-              ].map((e, i) => {
-                const Icon = e.icon;
+                { i: Phone, c: "primary",   tip: "电话",   on: () => toast.success(`正在拨打 ${c.name}`) },
+                { i: Video, c: "secondary", tip: "视频",   on: () => toast.info("视频邀请已发送") },
+                { i: Mic,   c: "secondary", tip: "语音",   on: () => toast.info("按住说话…") },
+                { i: MessageSquare, c: "secondary", tip: "IM", on: () => push({ name: "chat", id: c.id }) },
+              ].map((a, i) => {
+                const Icon = a.i;
                 return (
-                  <div key={i} className="flex gap-3 py-2 border-b border-border last:border-0">
-                    <div className="flex flex-col items-center">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center"><Icon className="w-3.5 h-3.5 text-primary" /></div>
-                      <div className="flex-1 w-px bg-border mt-1" />
-                    </div>
-                    <div className="flex-1 pb-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary">{e.type}</span>
-                        <span className="text-[11px] text-muted-foreground">{e.t}</span>
-                      </div>
-                      <div className="text-sm mt-0.5">{e.d}</div>
-                    </div>
-                  </div>
+                  <button key={i} onClick={a.on} title={a.tip}
+                    className={`h-8 rounded-lg flex items-center justify-center ${a.c === "primary" ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
+                    <Icon className="w-3.5 h-3.5" />
+                  </button>
                 );
               })}
-            </Section>
-
-            {/* 变化雷达（CM-D） */}
-            <Section title="变化雷达 · 异常告警">
-              <div className="space-y-2">
-                {[
-                  { p: "P0", c: "danger",  t: "关键指标变化", d: "HbA1c 由 6.8 → 7.4 (↑0.6)" },
-                  { p: "P0", c: "danger",  t: "行为异常", d: "连续 3 天打卡质量下降" },
-                  { p: "P1", c: "warning", t: "关系变化", d: "近 7 天家人互动 -40%" },
-                  { p: "P1", c: "warning", t: "重要日期", d: "下周三 生日（建议送祝福）" },
-                  { p: "P0", c: "danger",  t: "续费机会", d: "服务包 30 天后到期" },
-                ].map((a, i) => (
-                  <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg ${a.c === "danger" ? "bg-danger/5" : "bg-warning/5"}`}>
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${a.c === "danger" ? "bg-danger/15 text-danger" : "bg-warning/15 text-[oklch(0.5_0.13_75)]"}`}>{a.p}</span>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{a.t}</div>
-                      <div className="text-[11px] text-muted-foreground">{a.d}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="问诊 + 医嘱历史">
-              {[
-                { t: "5/14 赵主任", d: "继续当前方案，2 周后复查 HbA1c" },
-                { t: "4/28 钱药师", d: "二甲双胍餐后服用，监测低血糖" },
-              ].map((r, i) => (
-                <div key={i} className="py-2 border-b border-border last:border-0">
-                  <div className="text-[11px] text-muted-foreground">{r.t}</div>
-                  <div className="text-sm mt-0.5">{r.d}</div>
-                </div>
-              ))}
-            </Section>
-
-            <Section title="客户情绪轨迹（30 天）">
-              <div className="flex items-end h-16 gap-1">
-                {[3,4,4,3,2,2,3,3,4,4,5,4,3,3,4,4,3,2,3,4,4,5,4,3,3,4,4,4,5,5].map((v,i)=>(
-                  <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${v*20}%`, background: v>=4?"oklch(0.7 0.15 145)":v>=3?"oklch(0.7 0.15 75)":"oklch(0.65 0.2 25)" }} />
-                ))}
-              </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                <span>30天前</span><span>今日 5/5 ↗</span>
-              </div>
-            </Section>
-          </>
+            </div>
+          </div>
         )}
+        <button onClick={() => setShowQuick(s => !s)}
+          className="w-11 h-11 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[var(--shadow-soft)] flex items-center justify-center active:scale-95">
+          {showQuick ? <X className="w-5 h-5" /> : <Sparkles className="w-5 h-5" />}
+        </button>
+      </div>
 
-        {/* ===== 家庭视图（CM-E）===== */}
-        {tab === "family" && (
-          <>
-            <Section title="家庭结构图">
-              <div className="flex flex-col items-center gap-2">
-                {/* 上一代 */}
-                <div className="flex gap-3">
-                  {[{n:"父", a:95, dead:true}].map(m => (
-                    <FamilyNode key={m.n} {...m} />
-                  ))}
-                </div>
-                <div className="w-px h-3 bg-border" />
-                {/* 本代 */}
-                <div className="flex gap-3 items-center">
-                  <FamilyNode n={c.name[0]} a={c.age} self />
-                  <div className="text-[10px] text-muted-foreground">— 配偶 —</div>
-                  <FamilyNode n="妻" a={c.age - 2} />
-                </div>
-                <div className="w-px h-3 bg-border" />
-                {/* 下一代 */}
-                <div className="flex gap-3">
-                  <FamilyNode n="儿" a={42} authorized />
-                  <FamilyNode n="女" a={38} authorized />
-                </div>
-              </div>
-            </Section>
-
-            <Section title="各家人健康概览">
-              {[
-                { n: "妻 周阿姨", age: 70, st: "有高血压、骨质疏松", color: "warning" },
-                { n: "儿 张强",   age: 42, st: "亚健康，体检正常", color: "success" },
-                { n: "女 张敏",   age: 38, st: "孕中期 28 周",     color: "primary" },
-              ].map(m => (
-                <div key={m.n} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-sm">{m.n[0]}</div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{m.n} <span className="text-[11px] text-muted-foreground">{m.age}岁</span></div>
-                    <div className="text-[11px] text-muted-foreground">{m.st}</div>
-                  </div>
-                  <span className={`w-2 h-2 rounded-full ${m.color === "warning" ? "bg-warning" : m.color === "success" ? "bg-success" : "bg-primary"}`} />
-                </div>
-              ))}
-            </Section>
-
-            <Section title="家庭互动频率（家人间冷暖）">
-              <div className="space-y-1.5">
-                {[
-                  { p: "本人 ↔ 女儿", v: 92, hot: true },
-                  { p: "本人 ↔ 妻子", v: 78, hot: true },
-                  { p: "本人 ↔ 儿子", v: 35, hot: false },
-                ].map(r => (
-                  <div key={r.p}>
-                    <div className="flex justify-between text-xs mb-1"><span>{r.p}</span><span className="text-muted-foreground">{r.v}%</span></div>
-                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                      <div className="h-full" style={{ width: `${r.v}%`, background: r.hot ? "oklch(0.65 0.2 25)" : "oklch(0.7 0.05 230)" }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            <Section title="紧急联系人">
-              {[
-                { n: "张敏（女儿）", t: "紧急", p: "138-0000-1234" },
-                { n: "张强（儿子）", t: "日常", p: "139-1111-5678" },
-              ].map(m => (
-                <div key={m.n} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
-                  <div className="flex-1">
-                    <div className="text-sm">{m.n} <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded ${m.t === "紧急" ? "bg-danger/10 text-danger" : "bg-secondary text-muted-foreground"}`}>{m.t}</span></div>
-                    <div className="text-[11px] text-muted-foreground">{m.p}</div>
-                  </div>
-                  <button onClick={() => toast.success(`正在拨打 ${m.n}`)} className="p-2 rounded-full bg-primary/10"><Phone className="w-3.5 h-3.5 text-primary" /></button>
-                </div>
-              ))}
-            </Section>
-
-            <Section title="授权关系（谁看得到谁的数据）">
-              <div className="space-y-1.5 text-sm">
-                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">允许</span>女儿张敏 → 全部数据</div>
-                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">允许</span>妻子 → 用药 + 复诊提醒</div>
-                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-secondary text-muted-foreground">禁用</span>儿子 → 暂未授权</div>
-              </div>
-            </Section>
-          </>
-        )}
-
-        {/* ===== 服务记录 ===== */}
-        {tab === "log" && (
-          <>
-            <Section title="五人团">
-              <div className="space-y-2">
-                {fivePersonTeam.map(m => (
-                  <div key={m.role} className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-xs">{m.name[0]}</div>
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">{m.name}<span className="ml-1 text-[11px] text-muted-foreground">{m.role}</span></div>
-                      <div className="text-[11px] text-muted-foreground">{m.desc}</div>
-                    </div>
-                    <button onClick={() => toast.info(`已发起与 ${m.name} 的协作`)} className="p-1.5 rounded-full bg-primary/10">
-                      <MessageSquare className="w-3.5 h-3.5 text-primary" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </Section>
-            <Section title="服务记录">
-              {[
-                { t: "今天 08:30", d: "电话回访低血糖处置，已恢复" },
-                { t: "昨天 19:00", d: "推送晚餐建议（低 GI）" },
-                { t: "前天 15:20", d: "完成 MDT 会诊纪要" },
-                { t: "5/10",      d: "上门服务 + 健康宣教" },
-                { t: "5/08",      d: "服务包权益使用提醒" },
-              ].map((l, i) => (
-                <div key={i} className="py-2 border-b border-border last:border-0">
-                  <div className="text-[11px] text-muted-foreground">{l.t}</div>
-                  <div className="text-sm mt-0.5">{l.d}</div>
-                </div>
-              ))}
-            </Section>
-          </>
-        )}
+      {/* 底部悬浮：变化雷达最近事件 */}
+      <div className="absolute bottom-0 inset-x-0 z-20 px-3 py-2 bg-card/95 backdrop-blur border-t border-border">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1 shrink-0"><Activity className="w-3 h-3 text-danger" />变化雷达</span>
+          {[
+            { p: "P0", t: "HbA1c ↑0.6",  c: "danger" },
+            { p: "P1", t: "家人互动 -40%", c: "warning" },
+            { p: "P1", t: "下周三生日",   c: "primary" },
+            { p: "P0", t: "30 天后到期",  c: "danger" },
+          ].map((a, i) => (
+            <button key={i} onClick={() => { setTab("history"); toast.info(a.t); }}
+              className={`shrink-0 text-[10px] px-2 py-1 rounded-full border ${
+                a.c === "danger" ? "border-danger/30 bg-danger/5 text-danger" :
+                a.c === "warning" ? "border-warning/40 bg-warning/5 text-[oklch(0.5_0.13_75)]" :
+                "border-primary/30 bg-primary/5 text-primary"
+              }`}>
+              <b className="mr-1">{a.p}</b>{a.t}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* === 进入弹窗：客户简介 === */}
@@ -984,6 +943,360 @@ function FamilyNode({ n, a, self, dead, authorized }: { n: string; a: number; se
       }`}>{n}</div>
       <div className="text-[10px] text-muted-foreground mt-0.5">{a}岁</div>
     </div>
+  );
+}
+
+/* ============================================================
+ * 沟通时间线（CM-C）
+ *  · 垂直时间线，按日期倒序
+ *  · 每条触点：类型图标 + 时长 + 摘要 + 情绪识别 + 是否真温度
+ *  · 可按类型筛选；点击展开原始内容（录音回放 / 文字记录）
+ * ============================================================ */
+function CommunicationTimeline() {
+  type TT = "电话" | "IM" | "视频" | "上门" | "语音";
+  const all: { t: string; type: TT; icon: typeof Phone; dur: string; sum: string; mood: "正向" | "中性" | "负向"; warm: boolean; raw: { kind: "audio" | "text"; body: string } }[] = [
+    { t: "今天 08:30", type: "电话", icon: Phone,         dur: "5'12\"", sum: "低血糖处置回访，客户确认已恢复",       mood: "正向", warm: true,  raw: { kind: "audio", body: "[录音] 早上好，您现在感觉怎么样？……（5 分 12 秒）" } },
+    { t: "昨天 19:00", type: "IM",   icon: MessageSquare, dur: "12 条",  sum: "推送晚餐建议（低 GI），客户已收藏",   mood: "中性", warm: false, raw: { kind: "text",  body: "健管师：今天晚餐建议\n客户：好的谢谢\n健管师：[食谱图片]\n客户：[已收藏]" } },
+    { t: "5/12 14:30", type: "视频", icon: Video,         dur: "32'15\"", sum: "MDT 多学科会诊，方案已同步",         mood: "正向", warm: true,  raw: { kind: "audio", body: "[视频回放] 赵主任、钱药师、健管师与客户共同讨论用药方案……" } },
+    { t: "5/10 10:00", type: "上门", icon: HomeIcon,      dur: "45'",    sum: "上门测量血糖 + 健康教育",            mood: "正向", warm: true,  raw: { kind: "text",  body: "上门服务记录：测得空腹血糖 6.2，血压 132/82。完成饮食宣教。" } },
+    { t: "5/08 09:15", type: "语音", icon: Mic,           dur: "23\"",   sum: "用药提醒语音留言",                    mood: "中性", warm: false, raw: { kind: "audio", body: "[语音留言 23 秒] 别忘了餐后服用二甲双胍哦～" } },
+    { t: "5/05 21:00", type: "IM",   icon: MessageSquare, dur: "3 条",   sum: "客户主动询问失眠问题，回复改善建议", mood: "负向", warm: true,  raw: { kind: "text",  body: "客户：我最近又睡不着了\n健管师：可以试试睡前 1 小时不看手机……" } },
+  ];
+  const types: ("全部" | TT)[] = ["全部", "电话", "IM", "视频", "上门", "语音"];
+  const [filter, setFilter] = useState<(typeof types)[number]>("全部");
+  const [open, setOpen] = useState<Record<number, boolean>>({});
+  const list = all.filter(x => filter === "全部" || x.type === filter);
+  const moodColor = (m: string) => m === "正向" ? "text-success" : m === "负向" ? "text-danger" : "text-muted-foreground";
+  return (
+    <>
+      <Section title="AI 历史触点摘要">
+        <p className="text-sm leading-relaxed text-foreground">
+          近 30 天共触达 <b>14 次</b>（电话 4、IM 8、视频 1、上门 1）。
+          主要话题：<span className="text-primary">血糖控制</span>、
+          <span className="text-primary">用药依从性</span>、
+          <span className="text-primary">情绪关怀</span>。客户最关心：
+          <span className="text-warning">"夜间低血糖如何避免"</span>。
+        </p>
+      </Section>
+      <Section title="沟通时间线 · 倒序">
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          {types.map(t => (
+            <Chip key={t} active={filter === t} onClick={() => setFilter(t)}>{t}</Chip>
+          ))}
+        </div>
+        <div className="mt-2">
+          {list.map((e, i) => {
+            const Icon = e.icon;
+            const isOpen = !!open[i];
+            return (
+              <div key={i} className="flex gap-3 py-2 border-b border-border last:border-0">
+                <div className="flex flex-col items-center">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center"><Icon className="w-3.5 h-3.5 text-primary" /></div>
+                  <div className="flex-1 w-px bg-border mt-1" />
+                </div>
+                <div className="flex-1 pb-1">
+                  <button onClick={() => setOpen(o => ({ ...o, [i]: !o[i] }))} className="w-full text-left">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary">{e.type}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{e.dur}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded bg-secondary ${moodColor(e.mood)}`}>情绪 · {e.mood}</span>
+                      {e.warm && <span className="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger flex items-center gap-0.5"><Flame className="w-2.5 h-2.5" />真温度</span>}
+                      <span className="ml-auto text-[11px] text-muted-foreground flex items-center gap-1">{e.t}<ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`} /></span>
+                    </div>
+                    <div className="text-sm mt-1">{e.sum}</div>
+                  </button>
+                  {isOpen && (
+                    <div className="mt-2 rounded-lg bg-secondary/60 p-2.5">
+                      {e.raw.kind === "audio" ? (
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => toast.success("正在播放…")} className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center"><Play className="w-3.5 h-3.5" /></button>
+                          <div className="flex-1 h-1 rounded-full bg-card overflow-hidden"><div className="h-full bg-primary w-1/3" /></div>
+                          <span className="text-[10px] text-muted-foreground">{e.dur}</span>
+                        </div>
+                      ) : (
+                        <pre className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans text-foreground">{e.raw.body}</pre>
+                      )}
+                      <div className="text-[10px] text-muted-foreground mt-1.5 italic">{e.raw.body.startsWith("[") ? "" : "原始记录"}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {list.length === 0 && <div className="py-6 text-center text-xs text-muted-foreground">该类型暂无触点</div>}
+        </div>
+      </Section>
+      <Section title="客户情绪轨迹（30 天）">
+        <div className="flex items-end h-16 gap-1">
+          {[3,4,4,3,2,2,3,3,4,4,5,4,3,3,4,4,3,2,3,4,4,5,4,3,3,4,4,4,5,5].map((v,i)=>(
+            <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${v*20}%`, background: v>=4?"oklch(0.7 0.15 145)":v>=3?"oklch(0.7 0.15 75)":"oklch(0.65 0.2 25)" }} />
+          ))}
+        </div>
+        <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+          <span>30 天前</span><span>今日 5/5 ↗</span>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ============================================================
+ * 家庭视图（CM-E）
+ *  · 中央：客户本人
+ *  · 周围：家人节点（节点大小 = 互动频率冷热图）
+ *  · 点击家人节点 → 弹该家人健康概览
+ *  · 右侧：家庭关键事件日历
+ * ============================================================ */
+function FamilyView({ selfName, selfAge }: { selfName: string; selfAge: number }) {
+  type Member = { name: string; rel: string; age: number; freq: number; isQt: boolean; status: string; tone: "danger" | "warning" | "success" | "primary" | "muted"; auth: "全部" | "部分" | "无" };
+  const family: Member[] = [
+    { name: "周阿姨", rel: "妻子", age: selfAge - 2, freq: 92, isQt: true,  status: "高血压、骨质疏松，规律服药", tone: "warning", auth: "部分" },
+    { name: "张敏",   rel: "女儿", age: 38,          freq: 88, isQt: true,  status: "孕中期 28 周，产检正常",     tone: "primary", auth: "全部" },
+    { name: "张强",   rel: "儿子", age: 42,          freq: 35, isQt: false, status: "未注册，年度体检无异常",     tone: "success", auth: "无" },
+    { name: "父",     rel: "父亲", age: 95,          freq: 0,  isQt: false, status: "已故",                       tone: "muted",   auth: "无" },
+    { name: "孙",     rel: "外孙", age: 6,           freq: 60, isQt: false, status: "上幼儿园，活泼好动",         tone: "success", auth: "无" },
+  ];
+  const [picked, setPicked] = useState<Member | null>(null);
+  const events = [
+    { d: "5/15", t: "周阿姨 高血压复诊", c: "warning" },
+    { d: "5/18", t: "本人 生日 🎂",        c: "primary" },
+    { d: "5/22", t: "张敏 产检",           c: "primary" },
+    { d: "6/01", t: "外孙 儿童节",         c: "success" },
+    { d: "6/15", t: "父亲忌日 · 注意情绪", c: "danger" },
+  ];
+  // 圆周布局
+  const R = 95;
+  const cx = 130, cy = 120;
+  const positioned = family.map((m, i) => {
+    const angle = (i / family.length) * Math.PI * 2 - Math.PI / 2;
+    return { ...m, x: cx + Math.cos(angle) * R, y: cy + Math.sin(angle) * R };
+  });
+  const sizeFor = (freq: number) => 30 + (freq / 100) * 22; // 30-52 px
+  const colorFor = (freq: number) =>
+    freq >= 70 ? "oklch(0.65 0.2 25)" :
+    freq >= 40 ? "oklch(0.78 0.15 75)" :
+    freq > 0   ? "oklch(0.78 0.05 230)" :
+                 "oklch(0.85 0.02 240)";
+  return (
+    <>
+      <Section title="家庭关系图（节点大小 = 互动频率）">
+        <div className="relative w-full" style={{ height: 250 }}>
+          {/* 连线 */}
+          <svg className="absolute inset-0 w-full h-full" viewBox="0 0 260 250">
+            {positioned.map((m, i) => (
+              <line key={i} x1={cx} y1={cy} x2={m.x} y2={m.y}
+                stroke={colorFor(m.freq)} strokeOpacity={0.5} strokeWidth={Math.max(1, m.freq / 30)} strokeDasharray={m.freq === 0 ? "3 3" : ""} />
+            ))}
+          </svg>
+          {/* 中心：本人 */}
+          <div className="absolute" style={{ left: cx - 28, top: cy - 28 }}>
+            <div className="w-14 h-14 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground flex flex-col items-center justify-center shadow-[var(--shadow-soft)]">
+              <span className="text-base font-semibold leading-none">{selfName[0]}</span>
+              <span className="text-[9px] opacity-80 mt-0.5">本人</span>
+            </div>
+          </div>
+          {/* 家人节点 */}
+          {positioned.map((m, i) => {
+            const sz = sizeFor(m.freq);
+            return (
+              <button key={i} onClick={() => setPicked(m)} title={`${m.rel} · 互动 ${m.freq}%`}
+                className="absolute rounded-full flex flex-col items-center justify-center shadow active:scale-95 transition"
+                style={{ left: m.x - sz / 2, top: m.y - sz / 2, width: sz, height: sz, background: colorFor(m.freq), color: "white" }}>
+                <span className="text-[11px] font-medium leading-none">{m.name[0]}</span>
+                <span className="text-[8px] opacity-90 leading-none mt-0.5">{m.rel}</span>
+                {m.isQt && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-card text-primary text-[8px] flex items-center justify-center border border-card font-bold">蜻</span>}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground justify-center mt-1">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: "oklch(0.65 0.2 25)" }} />高频</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: "oklch(0.78 0.15 75)" }} />中频</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: "oklch(0.78 0.05 230)" }} />低频</span>
+          <span className="flex items-center gap-1"><span className="text-primary font-bold">蜻</span>蜻蜓用户</span>
+        </div>
+      </Section>
+
+      <Section title="家庭关键事件日历">
+        <div className="space-y-1.5">
+          {events.map((e, i) => (
+            <div key={i} className="flex items-center gap-3 py-1.5 border-b border-border last:border-0">
+              <div className="w-12 text-center">
+                <div className="text-[10px] text-muted-foreground">{e.d.split("/")[0]} 月</div>
+                <div className="text-base font-semibold leading-none">{e.d.split("/")[1]}</div>
+              </div>
+              <div className={`w-1 h-8 rounded-full ${
+                e.c === "danger" ? "bg-danger" : e.c === "warning" ? "bg-warning" : e.c === "success" ? "bg-success" : "bg-primary"
+              }`} />
+              <div className="flex-1 text-sm">{e.t}</div>
+              <button onClick={() => toast.success("已加入提醒")} className="text-[11px] text-primary">提醒</button>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="授权关系（谁看得到谁的数据）">
+        <div className="space-y-1.5 text-sm">
+          {family.filter(f => f.tone !== "muted").map(f => (
+            <div key={f.name} className="flex items-center gap-2">
+              <span className={`px-1.5 py-0.5 text-[10px] rounded ${
+                f.auth === "全部" ? "bg-primary/10 text-primary" :
+                f.auth === "部分" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
+                "bg-secondary text-muted-foreground"
+              }`}>{f.auth === "无" ? "禁用" : "允许"}</span>
+              {f.rel} {f.name} → {f.auth === "全部" ? "全部数据" : f.auth === "部分" ? "用药 + 复诊提醒" : "暂未授权"}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* 家人健康概览弹窗 */}
+      {picked && (
+        <div className="absolute inset-0 z-30 bg-black/60 flex items-end" onClick={() => setPicked(null)}>
+          <div className="w-full bg-card rounded-t-3xl p-5" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center text-base font-medium text-white" style={{ background: colorFor(picked.freq) }}>{picked.name[0]}</div>
+              <div className="flex-1">
+                <div className="text-base font-semibold flex items-center gap-1.5">
+                  {picked.name}
+                  <span className="text-[11px] text-muted-foreground font-normal">{picked.rel} · {picked.age}岁</span>
+                  {picked.isQt && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">蜻蜓用户</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">与本人互动频率 · {picked.freq}%</div>
+              </div>
+              <button onClick={() => setPicked(null)} className="p-1.5"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="rounded-xl bg-secondary/60 p-3 text-sm">{picked.status}</div>
+            {picked.isQt ? (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <Metric label="血压" value="138/86" />
+                <Metric label="情绪" value="3.6/5" />
+                <Metric label="服药率" value="92%" />
+              </div>
+            ) : (
+              <div className="mt-3 rounded-xl bg-warning/5 border border-warning/20 p-3 text-[12px] text-[oklch(0.45_0.13_75)]">
+                该家人尚未注册蜻蜓康健家，无健康数据。可邀请其加入家庭组。
+              </div>
+            )}
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => toast.success(`正在拨打 ${picked.name}`)} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm flex items-center justify-center gap-1.5"><Phone className="w-4 h-4" />联系</button>
+              <button onClick={() => toast.info(picked.isQt ? "已发送家庭关怀任务" : "邀请短信已发送")} className="flex-1 py-2.5 rounded-xl bg-secondary text-sm">{picked.isQt ? "发起协同" : "邀请加入"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ===== 报告 Tab ===== */
+function ReportTab() {
+  const reports = [
+    { d: "2026/05", t: "5 月健康月报", tags: ["糖尿病", "情绪"], status: "新" },
+    { d: "2026/04", t: "4 月健康月报", tags: ["糖尿病"],         status: "已读" },
+    { d: "2026/Q1", t: "Q1 季度评估",  tags: ["综合"],           status: "已读" },
+    { d: "2026/03", t: "MDT 会诊纪要 #028", tags: ["MDT"],       status: "已读" },
+    { d: "2026/02", t: "年度体检解读",  tags: ["体检"],           status: "已读" },
+  ];
+  return (
+    <>
+      <Section title="健康报告">
+        <div className="space-y-2">
+          {reports.map((r, i) => (
+            <button key={i} onClick={() => toast.info(`已打开 ${r.t}`)}
+              className="w-full rounded-xl border border-border p-3 flex items-center gap-3 active:bg-secondary text-left">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileText className="w-4 h-4 text-primary" /></div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium flex items-center gap-1.5">
+                  {r.t}
+                  {r.status === "新" && <span className="text-[10px] px-1.5 py-0 rounded bg-danger/10 text-danger">NEW</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{r.d} · {r.tags.join(" / ")}</div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </button>
+          ))}
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ===== 问诊 Tab ===== */
+function InquiryTab() {
+  const list = [
+    { d: "5/14", who: "赵主任 · 责任医师", topic: "复诊建议", body: "继续当前方案，2 周后复查 HbA1c。如夜间再次出现低血糖立即来诊。" },
+    { d: "5/12", who: "MDT 多学科",       topic: "联合方案", body: "营养师调整碳水比例 → 45%；药师下调二甲双胍至餐后 0.5g。" },
+    { d: "4/28", who: "钱药师",           topic: "用药咨询", body: "可餐后服用，避免空腹引起低血糖；监测晨起血糖。" },
+    { d: "4/15", who: "赵主任",           topic: "图文问诊", body: "上传眼底照片 → 排查糖网。建议眼科专科就诊。" },
+  ];
+  return (
+    <>
+      <Section title="问诊与医嘱">
+        <div className="space-y-2">
+          {list.map((r, i) => (
+            <div key={i} className="rounded-xl border border-border p-3">
+              <div className="flex items-center gap-2">
+                <Stethoscope className="w-3.5 h-3.5 text-primary" />
+                <span className="text-sm font-medium">{r.topic}</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">{r.d}</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">{r.who}</div>
+              <p className="text-sm mt-1.5 leading-relaxed">{r.body}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <Section title="发起新问诊">
+        <div className="grid grid-cols-3 gap-2">
+          <ActionTile icon={MessageSquare} label="图文问诊" onClick={() => toast.success("已发起图文问诊")} />
+          <ActionTile icon={Video}         label="视频问诊" onClick={() => toast.success("视频问诊已预约")} />
+          <ActionTile icon={Stethoscope}   label="MDT 申请" onClick={() => toast.success("MDT 申请已提交")} />
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ===== 用药 Tab ===== */
+function MedTab() {
+  const meds = [
+    { n: "二甲双胍",   d: "0.5g · 一日两次 · 餐后",  adh: 92, next: "今日 19:00", warn: "" },
+    { n: "厄贝沙坦",   d: "150mg · 一日一次 · 早晨", adh: 88, next: "明日 07:00", warn: "" },
+    { n: "阿托伐他汀", d: "20mg · 睡前",             adh: 76, next: "今晚 22:00", warn: "上周漏服 2 次" },
+  ];
+  return (
+    <>
+      <Section title="当前用药">
+        <div className="space-y-2">
+          {meds.map(m => (
+            <div key={m.n} className="rounded-xl border border-border p-3">
+              <div className="flex items-center gap-2">
+                <Pill className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">{m.n}</span>
+                <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${m.adh >= 90 ? "bg-success/10 text-success" : m.adh >= 80 ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" : "bg-danger/10 text-danger"}`}>依从 {m.adh}%</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-1">{m.d}</div>
+              <div className="flex items-center gap-3 mt-2 text-[11px]">
+                <span className="flex items-center gap-1 text-muted-foreground"><Clock className="w-3 h-3" />下次 {m.next}</span>
+                {m.warn && <span className="text-danger flex items-center gap-1"><AlertCircle className="w-3 h-3" />{m.warn}</span>}
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+                <button onClick={() => toast.success(`已推送 ${m.n} 服药提醒`)} className="py-1.5 rounded-lg bg-secondary text-[11px]">推送提醒</button>
+                <button onClick={() => toast.info("已询问钱药师")} className="py-1.5 rounded-lg bg-secondary text-[11px]">咨询药师</button>
+                <button onClick={() => toast.success("已记录已服")} className="py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px]">已服</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+      <Section title="用药相互作用 / 警示">
+        <div className="rounded-lg bg-warning/5 border border-warning/20 p-3 text-[12px] leading-relaxed">
+          <div className="flex items-center gap-1 text-[oklch(0.45_0.13_75)] font-medium mb-1"><AlertCircle className="w-3 h-3" />潜在风险</div>
+          二甲双胍 + 厄贝沙坦 联合使用时需监测肾功能；阿托伐他汀夜间服用，避免与西柚同服。
+        </div>
+      </Section>
+    </>
   );
 }
 
