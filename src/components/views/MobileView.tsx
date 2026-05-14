@@ -1861,7 +1861,7 @@ function LeaveMessage({ c, onClose, onDone }: { c: Customer; onClose: () => void
 }
 
 /* ---------- 结束沟通 → 引导生成 AI 摘要 ---------- */
-function EndChatPanel({ c, kind, onClose }: { c: Customer; kind: "phone" | "voice" | "text"; onClose: () => void }) {
+function EndChatPanel({ c, kind, onClose, onConfirm }: { c: Customer; kind: "phone" | "voice" | "text"; onClose: () => void; onConfirm: () => void }) {
   return (
     <div className="absolute inset-0 z-40 bg-black/60 flex items-end" onClick={onClose}>
       <div className="w-full bg-card rounded-t-3xl p-5" onClick={e => e.stopPropagation()}>
@@ -1879,7 +1879,7 @@ function EndChatPanel({ c, kind, onClose }: { c: Customer; kind: "phone" | "voic
         </div>
         <div className="mt-4 flex gap-2">
           <button onClick={onClose} className="flex-1 py-2.5 rounded-lg bg-secondary text-sm">稍后</button>
-          <button onClick={() => { onClose(); window.dispatchEvent(new CustomEvent("im-open-summary", { detail: { id: c.id, kind } })); }}
+          <button onClick={onConfirm}
             className="flex-[2] py-2.5 rounded-lg bg-[image:var(--gradient-primary)] text-primary-foreground text-sm">生成 AI 摘要 →</button>
         </div>
       </div>
