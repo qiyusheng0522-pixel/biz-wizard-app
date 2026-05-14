@@ -7,6 +7,7 @@ import {
   Phone, Video, Sparkles, HeartHandshake, CheckCircle2, Circle, Send, Mic, Image as ImageIcon,
   Plus, Filter, MoreHorizontal, FileText, Pill, Activity, Calendar, Star, Copy, BookOpen,
   TrendingUp, Award, Stethoscope, ClipboardList, Settings, LogOut, ShieldCheck, Clock,
+  X, MapPin, AlertCircle, Heart, Users2, Package, Smile, BookMarked, Gift, Clipboard, Home as HomeIcon,
 } from "lucide-react";
 
 /**
