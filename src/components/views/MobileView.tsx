@@ -509,16 +509,27 @@ function TaskDetail({
 }
 
 /* ============================================================
- * 详情：客户档案
+ * 详情：客户档案 — 完整还原文档 4.3.x 章节
+ *  · 进入弹窗简介（一段话 + 知道了）
+ *  · 基本信息 / 健康档案 / 数据趋势(30/90/自定义) / 服务包
+ *  · 生活偏好 / 家庭结构 / 沟通偏好 / 沟通历史 / 变化雷达 / 备注
  * ============================================================ */
 function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
   const c = customers.find(x => x.id === id) as Customer;
-  const [tab, setTab] = useState<"overview" | "metric" | "plan" | "log">("overview");
+  const [tab, setTab] = useState<"overview" | "archive" | "trend" | "history" | "family" | "log">("overview");
+  // 进入患者详情先弹窗展示一段简介
+  const [showIntro, setShowIntro] = useState(true);
+  const [trendRange, setTrendRange] = useState<"30" | "90" | "custom">("30");
+
+  // AI 一句话简介（模拟根据档案合成）
+  const intro = `${c.name}，${c.age}岁${c.gender}性，${c.diseases.join("、")}患者，${c.package}。${c.note}。最近一次触达：${c.lastTouch}。建议关注：用药依从性 + 情绪状态。`;
+
   return (
     <div>
       <PageHeader title="客户档案" pop={pop}
         right={<button onClick={() => toast.info("已加入星标客户")} className="p-1.5 rounded-lg hover:bg-secondary"><Star className="w-5 h-5" /></button>} />
       <div className="p-4 space-y-4">
+        {/* 头卡 */}
         <div className="rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground p-4">
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-xl font-medium">{c.name[0]}</div>
@@ -529,6 +540,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
                 {c.diseases.map(d => <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-white/15">{d}</span>)}
               </div>
             </div>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded bg-white/20`}>{layerMeta[c.layer].label}</span>
           </div>
           <div className="grid grid-cols-4 gap-2 mt-3">
             <ActionTile dark icon={Phone} label="电话" onClick={() => toast.success(`正在拨打 ${c.name}`)} />
@@ -538,21 +550,370 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
           </div>
         </div>
 
-        <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs">
+        {/* Tab */}
+        <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs overflow-x-auto">
           {[
             { id: "overview", l: "概览" },
-            { id: "metric", l: "监测" },
-            { id: "plan", l: "方案" },
-            { id: "log", l: "记录" },
+            { id: "archive",  l: "档案" },
+            { id: "trend",    l: "趋势" },
+            { id: "history",  l: "沟通" },
+            { id: "family",   l: "家庭" },
+            { id: "log",      l: "记录" },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
-              className={`flex-1 py-1.5 rounded-lg ${tab === t.id ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
+              className={`flex-1 py-1.5 rounded-lg whitespace-nowrap ${tab === t.id ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
               {t.l}
             </button>
           ))}
         </div>
 
+        {/* ===== 概览 ===== */}
         {tab === "overview" && (
+          <>
+            {/* 基本信息 */}
+            <Section title="基本信息">
+              <div className="grid grid-cols-2 gap-y-2.5 text-sm">
+                <InfoRow label="姓名" value={c.name} />
+                <InfoRow label="年龄" value={`${c.age} 岁`} />
+                <InfoRow label="性别" value={c.gender} />
+                <InfoRow label="服务包" value={c.package} />
+                <div className="col-span-2"><InfoRow label="地址" value="上海市浦东新区世纪大道 100 号 X 号楼" icon={MapPin} /></div>
+                <div className="col-span-2 rounded-lg bg-danger/5 border border-danger/20 px-3 py-2 mt-1">
+                  <div className="text-[11px] text-danger flex items-center gap-1"><AlertCircle className="w-3 h-3" />紧急联系人</div>
+                  <div className="text-sm mt-0.5">{c.gender === "男" ? "女儿 张敏" : "儿子 李强"} · 138-0000-1234</div>
+                </div>
+              </div>
+            </Section>
+
+            {/* 沟通偏好 */}
+            <Section title="沟通偏好">
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { l: "电话", i: Phone, on: true,  best: "上午 9-11 点" },
+                  { l: "视频", i: Video, on: c.layer !== "stable", best: "周末" },
+                  { l: "语音", i: Mic,   on: true,  best: "随时" },
+                  { l: "上门", i: HomeIcon, on: c.layer === "urgent", best: "需提前预约" },
+                ].map(p => {
+                  const Icon = p.i;
+                  return (
+                    <div key={p.l} className={`rounded-xl p-2.5 text-center border ${p.on ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/40 opacity-60"}`}>
+                      <Icon className={`w-4 h-4 mx-auto ${p.on ? "text-primary" : "text-muted-foreground"}`} />
+                      <div className="text-[11px] mt-1">{p.l}</div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">{p.best}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+
+            {/* 健管师备注 */}
+            <Section title="健管师备注 ✏️">
+              <div className="rounded-lg bg-warning/5 border border-warning/20 p-3 text-sm leading-relaxed">
+                客户性格内敛、不爱主动表达。家中老伴去年离世，需特别关注情绪状态；
+                喜欢早上散步，建议沟通安排在 9 点后；对甜食控制力较弱，需常规提醒。
+              </div>
+              <button onClick={() => toast.success("已进入编辑")} className="w-full mt-2 py-2 rounded-lg bg-secondary text-xs">编辑备注</button>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 档案 ===== */}
+        {tab === "archive" && (
+          <>
+            <Section title="健康档案">
+              <div className="space-y-3 text-sm">
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">病种</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {c.diseases.map(d => <span key={d} className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">{d}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">过敏史</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["青霉素", "海鲜"].map(d => <span key={d} className="text-xs px-2 py-0.5 rounded bg-danger/10 text-danger">{d}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">既往史</div>
+                  <ul className="text-sm space-y-0.5">
+                    <li>· 2018 年阑尾炎手术</li>
+                    <li>· 2021 年白内障手术</li>
+                    <li>· 长期高血压病史 12 年</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">当前用药</div>
+                  <div className="space-y-1.5">
+                    {[
+                      { n: "二甲双胍", d: "0.5g · 一日两次 · 餐后" },
+                      { n: "厄贝沙坦", d: "150mg · 一日一次 · 早晨" },
+                      { n: "阿托伐他汀", d: "20mg · 睡前" },
+                    ].map(m => (
+                      <div key={m.n} className="flex items-start gap-2 text-sm bg-secondary/40 rounded-lg px-2.5 py-1.5">
+                        <Pill className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
+                        <div><span className="font-medium">{m.n}</span><span className="ml-1 text-[11px] text-muted-foreground">{m.d}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Section>
+
+            {/* 服务包详情 */}
+            <Section title="服务包详情">
+              <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
+                <div className="text-xs opacity-90">{c.package}</div>
+                <div className="text-base font-semibold mt-0.5">2026.01.01 - 2026.12.31</div>
+                <div className="text-[11px] opacity-90 mt-1">剩余 232 天</div>
+              </div>
+              <div className="mt-3 space-y-2.5">
+                {[
+                  { l: "健管师随访", used: 12, total: 30 },
+                  { l: "MDT 会诊", used: 2, total: 6 },
+                  { l: "上门服务", used: 1, total: 4 },
+                  { l: "专家门诊", used: 3, total: 12 },
+                ].map(b => (
+                  <div key={b.l}>
+                    <div className="flex justify-between text-xs mb-1"><span>{b.l}</span><span className="text-muted-foreground">{b.used}/{b.total} 次</span></div>
+                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div className="h-full bg-primary" style={{ width: `${(b.used/b.total)*100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            {/* 生活偏好 */}
+            <Section title="生活偏好">
+              <div className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary" />AI 从打卡数据自动分析</div>
+              <div className="flex flex-wrap gap-1.5">
+                {["早起 6:30", "晨练步行", "口味偏咸", "喜甜食", "睡前阅读", "不吸烟", "偶尔饮酒"].map(t => (
+                  <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{t}</span>
+                ))}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-3 mb-2">健管师手动添加</div>
+              <div className="flex flex-wrap gap-1.5">
+                {["女儿陪伴重要", "信任老朋友推荐", "怕打针"].map(t => (
+                  <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-warning/10 text-[oklch(0.5_0.13_75)]">{t}</span>
+                ))}
+                <button onClick={() => toast.success("已新增标签")} className="text-xs px-2 py-0.5 rounded-full border border-dashed border-border text-muted-foreground">+ 添加</button>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 趋势 30/90/自定义 ===== */}
+        {tab === "trend" && (
+          <>
+            <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs">
+              {(["30", "90", "custom"] as const).map(r => (
+                <button key={r} onClick={() => { setTrendRange(r); if (r === "custom") toast.info("打开日期选择器"); }}
+                  className={`flex-1 py-1.5 rounded-lg ${trendRange === r ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
+                  {r === "30" ? "近 30 天" : r === "90" ? "近 90 天" : "自定义"}
+                </button>
+              ))}
+            </div>
+
+            {[
+              { l: "血糖 (mmol/L)",   data: [6.2, 7.1, 6.8, 9.2, 5.4, 7.8, 6.5, 8.1, 5.9, 6.7, 7.3, 6.4], color: "var(--primary)", unit: "" },
+              { l: "血压 (mmHg 收缩压)", data: [132, 138, 142, 152, 145, 138, 135, 130, 142, 148, 138, 132], color: "oklch(0.65 0.2 25)", unit: "" },
+              { l: "体重 (kg)",       data: [68.2, 68.0, 67.8, 67.9, 67.5, 67.6, 67.4, 67.2, 67.0, 67.1, 66.9, 66.8], color: "oklch(0.7 0.15 145)", unit: "" },
+              { l: "情绪 (1-5)",      data: [4, 4, 3, 3, 2, 3, 3, 4, 4, 3, 4, 5], color: "oklch(0.7 0.15 75)", unit: "" },
+            ].map(s => {
+              const max = Math.max(...s.data); const min = Math.min(...s.data);
+              const range = max - min || 1;
+              return (
+                <Section key={s.l} title={s.l}>
+                  <div className="flex items-end h-24 gap-1">
+                    {s.data.map((v, i) => (
+                      <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${((v-min)/range)*90+10}%`, background: s.color, opacity: 0.85 }} />
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                    <span>{trendRange === "30" ? "30 天前" : trendRange === "90" ? "90 天前" : "起始"}</span>
+                    <span>当前 {s.data[s.data.length-1]}{s.unit}</span>
+                  </div>
+                </Section>
+              );
+            })}
+          </>
+        )}
+
+        {/* ===== 沟通历史（CM-C 组）===== */}
+        {tab === "history" && (
+          <>
+            <Section title="AI 历史触点摘要">
+              <p className="text-sm leading-relaxed text-foreground">
+                近 30 天共触达 <b>14 次</b>（电话 4、IM 8、视频 1、上门 1）。
+                主要话题：<span className="text-primary">血糖控制</span>、
+                <span className="text-primary">用药依从性</span>、
+                <span className="text-primary">情绪关怀</span>。客户最关心：
+                <span className="text-warning">"夜间低血糖如何避免"</span>。
+              </p>
+            </Section>
+
+            <Section title="沟通时间线">
+              {[
+                { t: "今天 08:30", icon: Phone,         type: "电话", d: "低血糖处置回访 5'12\"" },
+                { t: "昨天 19:00", icon: MessageSquare, type: "IM",   d: "推送晚餐建议（低 GI）" },
+                { t: "5/12 14:30", icon: Video,         type: "视频", d: "MDT 会诊参与 32'" },
+                { t: "5/10 10:00", icon: HomeIcon,      type: "上门", d: "上门测量血糖 + 健康教育" },
+                { t: "5/08 09:15", icon: Mic,           type: "语音", d: "用药提醒语音 23\"" },
+              ].map((e, i) => {
+                const Icon = e.icon;
+                return (
+                  <div key={i} className="flex gap-3 py-2 border-b border-border last:border-0">
+                    <div className="flex flex-col items-center">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center"><Icon className="w-3.5 h-3.5 text-primary" /></div>
+                      <div className="flex-1 w-px bg-border mt-1" />
+                    </div>
+                    <div className="flex-1 pb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary">{e.type}</span>
+                        <span className="text-[11px] text-muted-foreground">{e.t}</span>
+                      </div>
+                      <div className="text-sm mt-0.5">{e.d}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </Section>
+
+            {/* 变化雷达（CM-D） */}
+            <Section title="变化雷达 · 异常告警">
+              <div className="space-y-2">
+                {[
+                  { p: "P0", c: "danger",  t: "关键指标变化", d: "HbA1c 由 6.8 → 7.4 (↑0.6)" },
+                  { p: "P0", c: "danger",  t: "行为异常", d: "连续 3 天打卡质量下降" },
+                  { p: "P1", c: "warning", t: "关系变化", d: "近 7 天家人互动 -40%" },
+                  { p: "P1", c: "warning", t: "重要日期", d: "下周三 生日（建议送祝福）" },
+                  { p: "P0", c: "danger",  t: "续费机会", d: "服务包 30 天后到期" },
+                ].map((a, i) => (
+                  <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg ${a.c === "danger" ? "bg-danger/5" : "bg-warning/5"}`}>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${a.c === "danger" ? "bg-danger/15 text-danger" : "bg-warning/15 text-[oklch(0.5_0.13_75)]"}`}>{a.p}</span>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{a.t}</div>
+                      <div className="text-[11px] text-muted-foreground">{a.d}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="问诊 + 医嘱历史">
+              {[
+                { t: "5/14 赵主任", d: "继续当前方案，2 周后复查 HbA1c" },
+                { t: "4/28 钱药师", d: "二甲双胍餐后服用，监测低血糖" },
+              ].map((r, i) => (
+                <div key={i} className="py-2 border-b border-border last:border-0">
+                  <div className="text-[11px] text-muted-foreground">{r.t}</div>
+                  <div className="text-sm mt-0.5">{r.d}</div>
+                </div>
+              ))}
+            </Section>
+
+            <Section title="客户情绪轨迹（30 天）">
+              <div className="flex items-end h-16 gap-1">
+                {[3,4,4,3,2,2,3,3,4,4,5,4,3,3,4,4,3,2,3,4,4,5,4,3,3,4,4,4,5,5].map((v,i)=>(
+                  <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${v*20}%`, background: v>=4?"oklch(0.7 0.15 145)":v>=3?"oklch(0.7 0.15 75)":"oklch(0.65 0.2 25)" }} />
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                <span>30天前</span><span>今日 5/5 ↗</span>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 家庭视图（CM-E）===== */}
+        {tab === "family" && (
+          <>
+            <Section title="家庭结构图">
+              <div className="flex flex-col items-center gap-2">
+                {/* 上一代 */}
+                <div className="flex gap-3">
+                  {[{n:"父", a:95, dead:true}].map(m => (
+                    <FamilyNode key={m.n} {...m} />
+                  ))}
+                </div>
+                <div className="w-px h-3 bg-border" />
+                {/* 本代 */}
+                <div className="flex gap-3 items-center">
+                  <FamilyNode n={c.name[0]} a={c.age} self />
+                  <div className="text-[10px] text-muted-foreground">— 配偶 —</div>
+                  <FamilyNode n="妻" a={c.age - 2} />
+                </div>
+                <div className="w-px h-3 bg-border" />
+                {/* 下一代 */}
+                <div className="flex gap-3">
+                  <FamilyNode n="儿" a={42} authorized />
+                  <FamilyNode n="女" a={38} authorized />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="各家人健康概览">
+              {[
+                { n: "妻 周阿姨", age: 70, st: "有高血压、骨质疏松", color: "warning" },
+                { n: "儿 张强",   age: 42, st: "亚健康，体检正常", color: "success" },
+                { n: "女 张敏",   age: 38, st: "孕中期 28 周",     color: "primary" },
+              ].map(m => (
+                <div key={m.n} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                  <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-sm">{m.n[0]}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">{m.n} <span className="text-[11px] text-muted-foreground">{m.age}岁</span></div>
+                    <div className="text-[11px] text-muted-foreground">{m.st}</div>
+                  </div>
+                  <span className={`w-2 h-2 rounded-full ${m.color === "warning" ? "bg-warning" : m.color === "success" ? "bg-success" : "bg-primary"}`} />
+                </div>
+              ))}
+            </Section>
+
+            <Section title="家庭互动频率（家人间冷暖）">
+              <div className="space-y-1.5">
+                {[
+                  { p: "本人 ↔ 女儿", v: 92, hot: true },
+                  { p: "本人 ↔ 妻子", v: 78, hot: true },
+                  { p: "本人 ↔ 儿子", v: 35, hot: false },
+                ].map(r => (
+                  <div key={r.p}>
+                    <div className="flex justify-between text-xs mb-1"><span>{r.p}</span><span className="text-muted-foreground">{r.v}%</span></div>
+                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div className="h-full" style={{ width: `${r.v}%`, background: r.hot ? "oklch(0.65 0.2 25)" : "oklch(0.7 0.05 230)" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="紧急联系人">
+              {[
+                { n: "张敏（女儿）", t: "紧急", p: "138-0000-1234" },
+                { n: "张强（儿子）", t: "日常", p: "139-1111-5678" },
+              ].map(m => (
+                <div key={m.n} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                  <div className="flex-1">
+                    <div className="text-sm">{m.n} <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded ${m.t === "紧急" ? "bg-danger/10 text-danger" : "bg-secondary text-muted-foreground"}`}>{m.t}</span></div>
+                    <div className="text-[11px] text-muted-foreground">{m.p}</div>
+                  </div>
+                  <button onClick={() => toast.success(`正在拨打 ${m.n}`)} className="p-2 rounded-full bg-primary/10"><Phone className="w-3.5 h-3.5 text-primary" /></button>
+                </div>
+              ))}
+            </Section>
+
+            <Section title="授权关系（谁看得到谁的数据）">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">允许</span>女儿张敏 → 全部数据</div>
+                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">允许</span>妻子 → 用药 + 复诊提醒</div>
+                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-secondary text-muted-foreground">禁用</span>儿子 → 暂未授权</div>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 服务记录 ===== */}
+        {tab === "log" && (
           <>
             <Section title="五人团">
               <div className="space-y-2">
@@ -570,46 +931,69 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
                 ))}
               </div>
             </Section>
-            <Section title="最近一次触达">
-              <div className="text-sm">{c.lastTouch}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">{c.note}</div>
+            <Section title="服务记录">
+              {[
+                { t: "今天 08:30", d: "电话回访低血糖处置，已恢复" },
+                { t: "昨天 19:00", d: "推送晚餐建议（低 GI）" },
+                { t: "前天 15:20", d: "完成 MDT 会诊纪要" },
+                { t: "5/10",      d: "上门服务 + 健康宣教" },
+                { t: "5/08",      d: "服务包权益使用提醒" },
+              ].map((l, i) => (
+                <div key={i} className="py-2 border-b border-border last:border-0">
+                  <div className="text-[11px] text-muted-foreground">{l.t}</div>
+                  <div className="text-sm mt-0.5">{l.d}</div>
+                </div>
+              ))}
             </Section>
           </>
         )}
-        {tab === "metric" && (
-          <Section title="近 24h 监测">
-            <div className="grid grid-cols-2 gap-2">
-              {c.metrics.bg     !== undefined && <Metric label="血糖"   value={`${c.metrics.bg} mmol/L`} />}
-              {c.metrics.bp     !== undefined && <Metric label="血压"   value={c.metrics.bp!} />}
-              {c.metrics.weight !== undefined && <Metric label="体重"   value={`${c.metrics.weight} kg`} />}
-              {c.metrics.mood   !== undefined && <Metric label="情绪"   value={`${c.metrics.mood}/5`} />}
-            </div>
-          </Section>
-        )}
-        {tab === "plan" && (
-          <Section title="管理方案">
-            <ul className="text-sm space-y-2">
-              <li className="flex items-start gap-2"><Pill className="w-4 h-4 mt-0.5 text-primary" />二甲双胍 0.5g bid</li>
-              <li className="flex items-start gap-2"><Activity className="w-4 h-4 mt-0.5 text-primary" />每周 3 次有氧 30 分钟</li>
-              <li className="flex items-start gap-2"><FileText className="w-4 h-4 mt-0.5 text-primary" />每月 1 次糖化血红蛋白复查</li>
-            </ul>
-          </Section>
-        )}
-        {tab === "log" && (
-          <Section title="服务记录">
-            {[
-              { t: "今天 08:30", d: "电话回访低血糖处置，已恢复" },
-              { t: "昨天 19:00", d: "推送晚餐建议（低 GI）" },
-              { t: "前天 15:20", d: "完成 MDT 会诊纪要" },
-            ].map((l, i) => (
-              <div key={i} className="py-2 border-b border-border last:border-0">
-                <div className="text-[11px] text-muted-foreground">{l.t}</div>
-                <div className="text-sm mt-0.5">{l.d}</div>
-              </div>
-            ))}
-          </Section>
-        )}
       </div>
+
+      {/* === 进入弹窗：客户简介 === */}
+      {showIntro && (
+        <div className="absolute inset-0 z-30 bg-black/60 flex items-center justify-center p-5 animate-in fade-in duration-200">
+          <div className="w-full bg-card rounded-2xl p-5 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground flex items-center justify-center text-base font-medium">{c.name[0]}</div>
+              <div>
+                <div className="text-base font-semibold flex items-center gap-1.5">{c.name} <Sparkles className="w-3.5 h-3.5 text-primary" /></div>
+                <div className="text-[11px] text-muted-foreground">AI 一句话简介</div>
+              </div>
+            </div>
+            <p className="text-sm leading-relaxed text-foreground">{intro}</p>
+            <button onClick={() => setShowIntro(false)}
+              className="w-full mt-4 py-2.5 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground font-medium text-sm">
+              知道了
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* 家庭节点 */
+function FamilyNode({ n, a, self, dead, authorized }: { n: string; a: number; self?: boolean; dead?: boolean; authorized?: boolean }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+        self ? "bg-[image:var(--gradient-primary)] text-primary-foreground" :
+        dead ? "bg-secondary text-muted-foreground line-through" :
+        authorized ? "bg-primary/15 text-primary border-2 border-primary/40" :
+        "bg-secondary text-foreground"
+      }`}>{n}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{a}岁</div>
+    </div>
+  );
+}
+
+/* 信息行 */
+function InfoRow({ label, value, icon: Icon }: { label: string; value: string; icon?: typeof MapPin }) {
+  return (
+    <div className="flex items-center gap-2">
+      {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className="text-sm">{value}</span>
     </div>
   );
 }
