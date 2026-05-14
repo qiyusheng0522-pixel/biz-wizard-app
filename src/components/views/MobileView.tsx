@@ -2334,7 +2334,248 @@ function RowBtn({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 // 仅做类型对齐占位（避免 lint 未使用警告）
-void MoreHorizontal; void Heart; void Users2; void Smile; void Clipboard;
+void MoreHorizontal; void Heart; void Smile; void Clipboard; void Hash; void AtSign; void MicOff;
+
+/* ============================================================
+ * 群聊信息（患者群：患者 + 家人 + 健管师 + 护士 + 医师）
+ * ============================================================ */
+function GroupInfo({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
+  const c = customers.find(x => x.id === id) as Customer;
+  const members = [
+    { n: c.name,   r: "患者",     t: "patient" },
+    { n: c.gender === "男" ? "张敏" : "李强", r: "女儿（紧急联系人）", t: "family" },
+    { n: "李太太",  r: "配偶",     t: "family" },
+    { n: "林姐",    r: "健管师（我）", t: "self" },
+    { n: "周护士",  r: "上门护士", t: "nurse" },
+    { n: "赵主任",  r: "主管医师", t: "doctor" },
+  ];
+  return (
+    <div>
+      <PageHeader title={`${c.name} · 患者群`} pop={pop} />
+      <div className="p-4 space-y-3">
+        <Section title={`群成员（${members.length} 人）`}>
+          <div className="grid grid-cols-4 gap-3">
+            {members.map(m => (
+              <button key={m.n} onClick={() => toast.info(`${m.n} · ${m.r}`)} className="flex flex-col items-center gap-1 active:scale-95">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-medium ${
+                  m.t === "patient" ? "bg-primary text-primary-foreground" :
+                  m.t === "doctor"  ? "bg-success/20 text-success" :
+                  m.t === "nurse"   ? "bg-warning/20 text-[oklch(0.5_0.13_75)]" :
+                  m.t === "family"  ? "bg-secondary" : "bg-primary/10 text-primary"
+                }`}>{m.n[0]}</div>
+                <span className="text-[10px] truncate w-full text-center">{m.n}</span>
+                <span className="text-[9px] text-muted-foreground truncate w-full text-center">{m.r}</span>
+              </button>
+            ))}
+            <button onClick={() => push({ name: "contactRoster" })} className="flex flex-col items-center gap-1 active:scale-95">
+              <div className="w-12 h-12 rounded-full border-2 border-dashed border-border flex items-center justify-center"><Plus className="w-4 h-4 text-muted-foreground" /></div>
+              <span className="text-[10px] text-muted-foreground">添加</span>
+            </button>
+          </div>
+        </Section>
+        <Section title="群权限">
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between"><span>家人可见健康数据</span><span className="text-success">已授权</span></div>
+            <div className="flex items-center justify-between"><span>家人可发起求助</span><span className="text-success">允许</span></div>
+            <div className="flex items-center justify-between"><span>医师指令优先推送</span><span className="text-primary">开启</span></div>
+          </div>
+        </Section>
+        <button onClick={() => { toast.success("已退出群聊（演示）"); pop(); }}
+          className="w-full py-3 rounded-xl bg-danger/10 text-danger text-sm font-medium">退出群聊</button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * 沟通结束 AI 摘要（电话 / 语音 / 文字均复用）
+ * - 健康师可编辑后确认录入档案
+ * - 自动生成沟通评分
+ * ============================================================ */
+function CallSummary({ id, kind, pop }: { id: string; kind: "phone" | "voice" | "text"; pop: () => void }) {
+  const c = customers.find(x => x.id === id) as Customer;
+  const [summary, setSummary] = useState(
+    `本次${kind === "phone" ? "电话" : kind === "voice" ? "语音" : "文字"}沟通时长 12 分钟。患者${c.name}主诉近日睡眠浅、晨起血压偏高（${c.metrics.bp ?? "146/92"}）。情绪稳定，对当前用药接受度良好。已提醒减盐 + 晚饭后散步 30 分钟，并预约周三 14:00 复诊。`
+  );
+  const [tags, setTags] = useState(["睡眠差", "血压偏高", "依从性良好"]);
+  const [score, setScore] = useState(88);
+  const risks = [
+    { l: "高血压控制不达标",   c: "danger" as const },
+    { l: "睡眠质量需观察 7 天", c: "warning" as const },
+  ];
+  const actions = [
+    "推送《晚间放松练习》音频",
+    "周三 14:00 提前 1 小时电话提醒复诊",
+    "联动孙营养师调整低钠晚餐方案",
+  ];
+  return (
+    <div>
+      <PageHeader title="AI 沟通摘要" pop={pop} />
+      <div className="p-4 space-y-3">
+        <div className="rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground p-4">
+          <div className="text-xs opacity-90 flex items-center gap-1"><Sparkles className="w-3 h-3" />AI 已为本次沟通生成摘要</div>
+          <div className="mt-1 text-sm">{c.name} · {kind === "phone" ? "电话" : kind === "voice" ? "语音" : "文字"} · {new Date().toLocaleString("zh-CN")}</div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="bg-white/15 rounded-lg p-2 text-center"><div className="text-[10px] opacity-80">沟通评分</div><div className="text-xl font-semibold">{score}</div></div>
+            <div className="bg-white/15 rounded-lg p-2 text-center"><div className="text-[10px] opacity-80">情绪</div><div className="text-base font-medium">平稳</div></div>
+            <div className="bg-white/15 rounded-lg p-2 text-center"><div className="text-[10px] opacity-80">风险</div><div className="text-base font-medium">中</div></div>
+          </div>
+        </div>
+        <Section title="摘要内容（可编辑）">
+          <textarea value={summary} onChange={e => setSummary(e.target.value)}
+            rows={6} className="w-full p-3 rounded-lg bg-secondary text-sm focus:outline-none resize-none" />
+        </Section>
+        <Section title="关键词标签">
+          <div className="flex flex-wrap gap-1.5">
+            {tags.map(t => (
+              <span key={t} className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary flex items-center gap-1">
+                {t}
+                <button onClick={() => setTags(s => s.filter(x => x !== t))}><X className="w-3 h-3" /></button>
+              </span>
+            ))}
+            <button onClick={() => setTags(s => [...s, "新标签"])} className="text-xs px-2 py-1 rounded-full bg-secondary">+ 添加</button>
+          </div>
+        </Section>
+        <Section title="风险点">
+          <div className="space-y-1.5">
+            {risks.map(r => (
+              <div key={r.l} className={`text-sm rounded-lg px-3 py-2 ${r.c === "danger" ? "bg-danger/5 text-danger" : "bg-warning/5 text-[oklch(0.5_0.13_75)]"}`}>· {r.l}</div>
+            ))}
+          </div>
+        </Section>
+        <Section title="下一步行动建议">
+          <ol className="list-decimal pl-5 space-y-1 text-sm">{actions.map(a => <li key={a}>{a}</li>)}</ol>
+        </Section>
+        <Section title="沟通评分">
+          <input type="range" min={60} max={100} value={score} onChange={e => setScore(Number(e.target.value))} className="w-full" />
+          <div className="text-xs text-muted-foreground">满意度 {score} 分 · 拖动可微调</div>
+        </Section>
+        <div className="grid grid-cols-2 gap-2">
+          <button onClick={() => { toast.info("摘要已暂存草稿"); }} className="py-3 rounded-xl bg-secondary text-sm font-medium">暂存</button>
+          <button onClick={() => { toast.success("已确认，自动录入档案 · 沟通模块"); pop(); }}
+            className="py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground text-sm font-medium">确认并录入档案</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * 客户留言列表（演示页 — 跳转入口）
+ * ============================================================ */
+function MessageBoard({ id, pop }: { id: string; pop: () => void }) {
+  const c = customers.find(x => x.id === id) as Customer;
+  const items = [
+    { d: "今日 09:30", t: "已为您调整二甲双胍服用时间，请饭后 30 分钟服用。" },
+    { d: "昨天 18:12", t: "周三 14:00 复诊提醒，记得空腹哦～" },
+    { d: "5/10",      t: "您本周血压平均 138/86，比上周下降 4mmHg，继续保持！" },
+  ];
+  return (
+    <div>
+      <PageHeader title={`留言 · ${c.name}`} pop={pop} />
+      <div className="p-4 space-y-2">
+        {items.map((m, i) => (
+          <div key={i} className="rounded-xl bg-card border border-border p-3">
+            <div className="text-[11px] text-muted-foreground">{m.d}</div>
+            <div className="text-sm mt-1">{m.t}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * 协同人员通讯录
+ * ============================================================ */
+function ContactRoster({ pop }: { pop: () => void }) {
+  const groups = [
+    { g: "主管医师", list: [{ n: "赵主任", r: "心内科" }, { n: "孙主任", r: "内分泌" }] },
+    { g: "药师",     list: [{ n: "钱药师", r: "临床药学" }] },
+    { g: "护士",     list: [{ n: "周护士", r: "上门护理" }, { n: "吴护士", r: "随访" }] },
+    { g: "康复师",   list: [{ n: "周教练", r: "运动康复" }] },
+    { g: "营养师",   list: [{ n: "孙老师", r: "膳食方案" }] },
+  ];
+  return (
+    <div>
+      <PageHeader title="协同通讯录" pop={pop} />
+      <div className="p-4 space-y-4">
+        {groups.map(g => (
+          <div key={g.g}>
+            <div className="text-xs text-muted-foreground mb-1.5">{g.g}</div>
+            <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
+              {g.list.map(p => (
+                <button key={p.n} onClick={() => { toast.success(`已邀请 ${p.n}`); pop(); }}
+                  className="w-full px-4 py-3 flex items-center gap-3 active:bg-secondary text-left">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium">{p.n[0]}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">{p.n}</div>
+                    <div className="text-[11px] text-muted-foreground">{p.r}</div>
+                  </div>
+                  <UserPlus className="w-4 h-4 text-primary" />
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * 沟通消息检索
+ * ============================================================ */
+function ImSearch({ pop, push }: { pop: () => void; push: (s: Stack) => void }) {
+  const [q, setQ] = useState("");
+  const all = [
+    ...customers.map(c => ({ kind: "客户" as const, id: c.id, title: c.name, sub: c.note, push: () => push({ name: "chat", id: c.id }) })),
+    { kind: "同事" as const, id: "co-zhao", title: "赵主任", sub: "@林姐 王奶奶 MDT 我已加入", push: () => toast.info("打开赵主任会话") },
+    { kind: "系统" as const, id: "sys-1", title: "AI 异常预警", sub: "张老爷子 凌晨血糖 3.8", push: () => toast.info("打开预警详情") },
+    { kind: "协同" as const, id: "cb-1", title: "医师转交", sub: "王奶奶 化疗止吐方案 11:00 前回访", push: () => toast.info("打开协同任务") },
+  ];
+  const r = q ? all.filter(x => x.title.includes(q) || x.sub.includes(q)) : [];
+  return (
+    <div>
+      <div className="sticky top-0 bg-card/95 backdrop-blur border-b border-border px-2 py-2 flex items-center gap-2">
+        <button onClick={pop} className="p-1.5 rounded-lg"><ChevronLeft className="w-5 h-5" /></button>
+        <div className="flex-1 relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input autoFocus value={q} onChange={e => setQ(e.target.value)}
+            placeholder="搜索消息内容、客户名、同事…"
+            className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-secondary focus:outline-none" />
+        </div>
+      </div>
+      <div className="p-4">
+        {!q && (
+          <>
+            <div className="text-xs text-muted-foreground mb-2">建议筛选</div>
+            <div className="flex flex-wrap gap-2">
+              {["@我的", "P0 紧急", "未读", "今天", "MDT", "护士"].map(s => (
+                <button key={s} onClick={() => setQ(s.replace("@", ""))} className="text-xs px-3 py-1.5 rounded-full bg-secondary">{s}</button>
+              ))}
+            </div>
+          </>
+        )}
+        {q && r.length === 0 && <div className="text-center py-12 text-sm text-muted-foreground">未找到结果</div>}
+        {r.length > 0 && (
+          <div className="space-y-2">
+            {r.map(x => (
+              <button key={x.kind + x.id} onClick={x.push}
+                className="w-full p-3 rounded-xl bg-card border border-border flex items-center gap-3 text-left active:bg-secondary">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{x.kind}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium">{x.title}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{x.sub}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 /* ============================================================
  * 首次登录工作台总结弹窗（对应文档示例图：今日工作台）
