@@ -1541,4 +1541,174 @@ function RowBtn({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 // 仅做类型对齐占位（避免 lint 未使用警告）
-void MoreHorizontal; void Filter;
+void MoreHorizontal; void Heart; void Users2; void Smile; void Clipboard;
+
+/* ============================================================
+ * 首次登录工作台总结弹窗（对应文档示例图：今日工作台）
+ * ============================================================ */
+function WelcomeBriefing({ onClose }: { onClose: () => void }) {
+  const top10 = [
+    { tag: "紧急", c: "danger",  d: "王奶奶 78 岁 糖尿病 昨夜血糖 3.8", sub: "AI 话术建议 + 一键电话" },
+    { tag: "紧急", c: "danger",  d: "陈叔 65 岁 心脏病 CGM 心率持续偏快", sub: "建议先视频了解情况" },
+    { tag: "紧急", c: "danger",  d: "刘阿姨 情绪打卡连续低落 3 天", sub: "建议语音关怀" },
+    { tag: "关怀", c: "warning", d: "断签 7 天客户 3 位（AI 话术已准备）", sub: "" },
+    { tag: "到期", c: "primary", d: "赵女士 服务包下周到期", sub: "续费机会" },
+  ];
+  return (
+    <div className="absolute inset-0 z-40 bg-black/60 flex items-end animate-in fade-in duration-200">
+      <div className="w-full bg-card rounded-t-3xl max-h-[90%] overflow-hidden flex flex-col">
+        {/* 头部 */}
+        <div className="px-5 pt-5 pb-3 bg-[image:var(--gradient-primary)] text-primary-foreground">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-xs opacity-90">{new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" })}</div>
+              <div className="text-lg font-semibold mt-0.5">早安林姐 ☀️</div>
+              <div className="text-[12px] opacity-90 mt-0.5">您今天服务中客户 <b>78</b> 位</div>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-full bg-white/15"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="grid grid-cols-4 gap-2 mt-3">
+            {[
+              { l: "今日关注", v: 7 },
+              { l: "紧急",     v: 3 },
+              { l: "新异常",   v: 2 },
+              { l: "续费到期", v: 1 },
+            ].map(k => (
+              <div key={k.l} className="bg-white/15 rounded-lg p-2 text-center">
+                <div className="text-[10px] opacity-80">{k.l}</div>
+                <div className="text-xl font-semibold">{k.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top 10 */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          <div className="text-xs font-semibold mb-2 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />今日 Top 5 关注客户
+          </div>
+          <div className="space-y-2">
+            {top10.map((it, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card p-3 flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">{i+1}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      it.c === "danger" ? "bg-danger/10 text-danger" :
+                      it.c === "warning" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
+                      "bg-primary/10 text-primary"
+                    }`}>{it.tag}</span>
+                    <span className="text-sm">{it.d}</span>
+                  </div>
+                  {it.sub && <div className="text-[11px] text-primary mt-0.5">· {it.sub}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-xl bg-secondary/60 p-3">
+            <div className="text-xs font-semibold mb-1.5">本周团队总览</div>
+            <div className="text-[11px] text-muted-foreground leading-relaxed">
+              在管 86 位 · 本周触点 412 / 480（86%）· 团队完成率 91%
+              <br />今日上海 多云 18°-26°，适合户外散步（可作为客户问候话题）
+            </div>
+          </div>
+        </div>
+
+        {/* 底部按钮 */}
+        <div className="p-4 border-t border-border bg-card">
+          <button onClick={onClose}
+            className="w-full py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground font-medium text-sm">
+            开始今日工作 →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * 客户列表 — 多条件高级筛选抽屉
+ * ============================================================ */
+function AdvancedFilter({
+  allDiseases, allPkgs, adv, onChange, onClose,
+}: {
+  allDiseases: string[]; allPkgs: string[];
+  adv: { disease: string[]; ageRange: string; pkg: string[]; status: string[] };
+  onChange: (v: typeof adv) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(adv);
+  const toggle = (key: "disease" | "pkg" | "status", v: string) => {
+    setDraft(d => ({ ...d, [key]: d[key].includes(v) ? d[key].filter(x => x !== v) : [...d[key], v] }));
+  };
+  return (
+    <div className="absolute inset-0 z-40 bg-black/60 flex items-end" onClick={onClose}>
+      <div className="w-full bg-card rounded-t-3xl max-h-[88%] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <span className="text-base font-semibold">多条件筛选</span>
+          <button onClick={onClose}><X className="w-5 h-5" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <FilterGroup title="病种">
+            <div className="flex flex-wrap gap-1.5">
+              {allDiseases.map(d => (
+                <FilterChip key={d} active={draft.disease.includes(d)} onClick={() => toggle("disease", d)}>{d}</FilterChip>
+              ))}
+            </div>
+          </FilterGroup>
+          <FilterGroup title="年龄段">
+            <div className="grid grid-cols-5 gap-1.5">
+              {[
+                { k: "all",    l: "不限" },
+                { k: "<45",    l: "<45" },
+                { k: "45-60",  l: "45-60" },
+                { k: "60-70",  l: "60-70" },
+                { k: ">70",    l: ">70" },
+              ].map(o => (
+                <FilterChip key={o.k} active={draft.ageRange === o.k} onClick={() => setDraft(d => ({ ...d, ageRange: o.k }))}>{o.l}</FilterChip>
+              ))}
+            </div>
+          </FilterGroup>
+          <FilterGroup title="服务包">
+            <div className="flex flex-wrap gap-1.5">
+              {allPkgs.map(p => (
+                <FilterChip key={p} active={draft.pkg.includes(p)} onClick={() => toggle("pkg", p)}>{p}</FilterChip>
+              ))}
+            </div>
+          </FilterGroup>
+          <FilterGroup title="客户状态（分层）">
+            <div className="flex flex-wrap gap-1.5">
+              {(["urgent","abnormal","stable","new","churnRisk"] as CustomerLayer[]).map(s => (
+                <FilterChip key={s} active={draft.status.includes(s)} onClick={() => toggle("status", s)}>{layerMeta[s].label}</FilterChip>
+              ))}
+            </div>
+          </FilterGroup>
+        </div>
+        <div className="p-4 border-t border-border bg-card flex gap-2">
+          <button onClick={() => setDraft({ disease: [], ageRange: "all", pkg: [], status: [] })}
+            className="flex-1 py-3 rounded-xl bg-secondary text-sm font-medium">重置</button>
+          <button onClick={() => { onChange(draft); onClose(); toast.success("筛选已应用"); }}
+            className="flex-[2] py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground font-medium text-sm">应用筛选</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground mb-2">{title}</div>
+      {children}
+    </div>
+  );
+}
+function FilterChip({ children, active, onClick }: { children: React.ReactNode; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={`text-xs px-3 py-1.5 rounded-full border transition ${
+        active ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border active:bg-secondary"
+      }`}>{children}</button>
+  );
+}
