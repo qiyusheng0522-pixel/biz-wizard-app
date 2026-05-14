@@ -758,21 +758,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
                     <li>· 长期高血压病史 12 年</li>
                   </ul>
                 </div>
-                <div>
-                  <div className="text-[11px] text-muted-foreground mb-1">当前用药</div>
-                  <div className="space-y-1.5">
-                    {[
-                      { n: "二甲双胍", d: "0.5g · 一日两次 · 餐后" },
-                      { n: "厄贝沙坦", d: "150mg · 一日一次 · 早晨" },
-                      { n: "阿托伐他汀", d: "20mg · 睡前" },
-                    ].map(m => (
-                      <div key={m.n} className="flex items-start gap-2 text-sm bg-secondary/40 rounded-lg px-2.5 py-1.5">
-                        <Pill className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
-                        <div><span className="font-medium">{m.n}</span><span className="ml-1 text-[11px] text-muted-foreground">{m.d}</span></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <div className="text-[11px] text-muted-foreground">当前用药请见「用药」Tab</div>
               </div>
             </Section>
 
