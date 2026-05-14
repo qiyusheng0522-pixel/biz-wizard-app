@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { customers, tasks, todayKpi, layerMeta, fivePersonTeam, type Task, type Customer } from "@/lib/mock-data";
+import { customers, tasks, todayKpi, layerMeta, fivePersonTeam, type Task, type Customer, type CustomerLayer } from "@/lib/mock-data";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import {
@@ -7,6 +7,7 @@ import {
   Phone, Video, Sparkles, HeartHandshake, CheckCircle2, Circle, Send, Mic, Image as ImageIcon,
   Plus, Filter, MoreHorizontal, FileText, Pill, Activity, Calendar, Star, Copy, BookOpen,
   TrendingUp, Award, Stethoscope, ClipboardList, Settings, LogOut, ShieldCheck, Clock,
+  X, MapPin, AlertCircle, Heart, Users2, Package, Smile, BookMarked, Gift, Clipboard, Home as HomeIcon,
 } from "lucide-react";
 
 /**
@@ -35,6 +36,8 @@ export function MobileView() {
   const [taskState, setTaskState] = useState<Record<string, boolean>>(
     Object.fromEntries(tasks.map(t => [t.id, !!t.done]))
   );
+  // 首次登录工作台总结弹窗（每次进入预览都会展示，方便验收）
+  const [showWelcome, setShowWelcome] = useState(true);
 
   const top = stack[stack.length - 1];
   const push = (s: Stack) => setStack(prev => [...prev, s]);
@@ -104,6 +107,9 @@ export function MobileView() {
       )}
 
       <Toaster position="top-center" />
+      {showWelcome && top.name === "tabs" && tab === "home" && (
+        <WelcomeBriefing onClose={() => setShowWelcome(false)} />
+      )}
     </div>
   );
 }
@@ -239,11 +245,32 @@ function MHome({
  * ============================================================ */
 function MClient({ push }: { push: (s: Stack) => void }) {
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "urgent" | "abnormal" | "stable" | "new">("all");
+  const [filter, setFilter] = useState<"all" | "urgent" | "abnormal" | "stable" | "new" | "churnRisk">("all");
+  const [showAdv, setShowAdv] = useState(false);
+  // 多条件筛选：病种 / 年龄段 / 服务包 / 状态
+  const [adv, setAdv] = useState<{ disease: string[]; ageRange: string; pkg: string[]; status: string[] }>({
+    disease: [], ageRange: "all", pkg: [], status: [],
+  });
+  const allDiseases = Array.from(new Set(customers.flatMap(c => c.diseases)));
+  const allPkgs = ["体验包", "银卡", "金卡"];
+  const ageMatch = (age: number) => {
+    if (adv.ageRange === "all") return true;
+    if (adv.ageRange === "<45") return age < 45;
+    if (adv.ageRange === "45-60") return age >= 45 && age <= 60;
+    if (adv.ageRange === "60-70") return age > 60 && age <= 70;
+    if (adv.ageRange === ">70") return age > 70;
+    return true;
+  };
   const filtered = customers.filter(c =>
     (filter === "all" || c.layer === filter) &&
-    (q === "" || c.name.includes(q) || c.diseases.some(d => d.includes(q)))
+    (q === "" || c.name.includes(q) || c.diseases.some(d => d.includes(q))) &&
+    (adv.disease.length === 0 || adv.disease.some(d => c.diseases.includes(d))) &&
+    ageMatch(c.age) &&
+    (adv.pkg.length === 0 || adv.pkg.some(p => c.package.includes(p))) &&
+    (adv.status.length === 0 || adv.status.includes(c.layer))
   );
+  const advCount =
+    adv.disease.length + (adv.ageRange !== "all" ? 1 : 0) + adv.pkg.length + adv.status.length;
   return (
     <div className="px-4 py-3 space-y-3">
       <div className="flex items-center gap-2">
@@ -255,6 +282,12 @@ function MClient({ push }: { push: (s: Stack) => void }) {
             placeholder="搜索客户姓名 / 病种"
           />
         </button>
+        <button onClick={() => setShowAdv(true)} className="relative p-2.5 rounded-xl bg-secondary text-foreground active:scale-95 transition">
+          <Filter className="w-4 h-4" />
+          {advCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[10px] flex items-center justify-center">{advCount}</span>
+          )}
+        </button>
         <button onClick={() => push({ name: "addCustomer" })} className="p-2.5 rounded-xl bg-primary text-primary-foreground active:scale-95 transition">
           <Plus className="w-4 h-4" />
         </button>
@@ -265,7 +298,18 @@ function MClient({ push }: { push: (s: Stack) => void }) {
         <Chip active={filter === "abnormal"} onClick={() => setFilter("abnormal")}>异常 2</Chip>
         <Chip active={filter === "stable"} onClick={() => setFilter("stable")}>稳定 72</Chip>
         <Chip active={filter === "new"} onClick={() => setFilter("new")}>新入 1</Chip>
+        <Chip active={filter === "churnRisk"} onClick={() => setFilter("churnRisk")}>离网倾向 3</Chip>
       </div>
+      {advCount > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground">已筛选：</span>
+          {[...adv.disease, ...adv.pkg, ...adv.status.map(s => layerMeta[s as CustomerLayer]?.label || s)].map(t => (
+            <span key={t} className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">{t}</span>
+          ))}
+          {adv.ageRange !== "all" && <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary">{adv.ageRange}岁</span>}
+          <button onClick={() => setAdv({ disease: [], ageRange: "all", pkg: [], status: [] })} className="text-[11px] text-muted-foreground underline ml-auto">清空</button>
+        </div>
+      )}
       <div className="space-y-2">
         {filtered.map(c => (
           <button key={c.id} onClick={() => push({ name: "customer", id: c.id })}
@@ -289,6 +333,15 @@ function MClient({ push }: { push: (s: Stack) => void }) {
           <div className="text-center py-12 text-sm text-muted-foreground">未找到客户</div>
         )}
       </div>
+      {showAdv && (
+        <AdvancedFilter
+          allDiseases={allDiseases}
+          allPkgs={allPkgs}
+          adv={adv}
+          onChange={setAdv}
+          onClose={() => setShowAdv(false)}
+        />
+      )}
     </div>
   );
 }
@@ -456,16 +509,27 @@ function TaskDetail({
 }
 
 /* ============================================================
- * 详情：客户档案
+ * 详情：客户档案 — 完整还原文档 4.3.x 章节
+ *  · 进入弹窗简介（一段话 + 知道了）
+ *  · 基本信息 / 健康档案 / 数据趋势(30/90/自定义) / 服务包
+ *  · 生活偏好 / 家庭结构 / 沟通偏好 / 沟通历史 / 变化雷达 / 备注
  * ============================================================ */
 function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
   const c = customers.find(x => x.id === id) as Customer;
-  const [tab, setTab] = useState<"overview" | "metric" | "plan" | "log">("overview");
+  const [tab, setTab] = useState<"overview" | "archive" | "trend" | "history" | "family" | "log">("overview");
+  // 进入患者详情先弹窗展示一段简介
+  const [showIntro, setShowIntro] = useState(true);
+  const [trendRange, setTrendRange] = useState<"30" | "90" | "custom">("30");
+
+  // AI 一句话简介（模拟根据档案合成）
+  const intro = `${c.name}，${c.age}岁${c.gender}性，${c.diseases.join("、")}患者，${c.package}。${c.note}。最近一次触达：${c.lastTouch}。建议关注：用药依从性 + 情绪状态。`;
+
   return (
     <div>
       <PageHeader title="客户档案" pop={pop}
         right={<button onClick={() => toast.info("已加入星标客户")} className="p-1.5 rounded-lg hover:bg-secondary"><Star className="w-5 h-5" /></button>} />
       <div className="p-4 space-y-4">
+        {/* 头卡 */}
         <div className="rounded-2xl bg-[image:var(--gradient-primary)] text-primary-foreground p-4">
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center text-xl font-medium">{c.name[0]}</div>
@@ -476,6 +540,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
                 {c.diseases.map(d => <span key={d} className="text-[10px] px-1.5 py-0.5 rounded bg-white/15">{d}</span>)}
               </div>
             </div>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded bg-white/20`}>{layerMeta[c.layer].label}</span>
           </div>
           <div className="grid grid-cols-4 gap-2 mt-3">
             <ActionTile dark icon={Phone} label="电话" onClick={() => toast.success(`正在拨打 ${c.name}`)} />
@@ -485,21 +550,370 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
           </div>
         </div>
 
-        <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs">
+        {/* Tab */}
+        <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs overflow-x-auto">
           {[
             { id: "overview", l: "概览" },
-            { id: "metric", l: "监测" },
-            { id: "plan", l: "方案" },
-            { id: "log", l: "记录" },
+            { id: "archive",  l: "档案" },
+            { id: "trend",    l: "趋势" },
+            { id: "history",  l: "沟通" },
+            { id: "family",   l: "家庭" },
+            { id: "log",      l: "记录" },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
-              className={`flex-1 py-1.5 rounded-lg ${tab === t.id ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
+              className={`flex-1 py-1.5 rounded-lg whitespace-nowrap ${tab === t.id ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
               {t.l}
             </button>
           ))}
         </div>
 
+        {/* ===== 概览 ===== */}
         {tab === "overview" && (
+          <>
+            {/* 基本信息 */}
+            <Section title="基本信息">
+              <div className="grid grid-cols-2 gap-y-2.5 text-sm">
+                <InfoRow label="姓名" value={c.name} />
+                <InfoRow label="年龄" value={`${c.age} 岁`} />
+                <InfoRow label="性别" value={c.gender} />
+                <InfoRow label="服务包" value={c.package} />
+                <div className="col-span-2"><InfoRow label="地址" value="上海市浦东新区世纪大道 100 号 X 号楼" icon={MapPin} /></div>
+                <div className="col-span-2 rounded-lg bg-danger/5 border border-danger/20 px-3 py-2 mt-1">
+                  <div className="text-[11px] text-danger flex items-center gap-1"><AlertCircle className="w-3 h-3" />紧急联系人</div>
+                  <div className="text-sm mt-0.5">{c.gender === "男" ? "女儿 张敏" : "儿子 李强"} · 138-0000-1234</div>
+                </div>
+              </div>
+            </Section>
+
+            {/* 沟通偏好 */}
+            <Section title="沟通偏好">
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { l: "电话", i: Phone, on: true,  best: "上午 9-11 点" },
+                  { l: "视频", i: Video, on: c.layer !== "stable", best: "周末" },
+                  { l: "语音", i: Mic,   on: true,  best: "随时" },
+                  { l: "上门", i: HomeIcon, on: c.layer === "urgent", best: "需提前预约" },
+                ].map(p => {
+                  const Icon = p.i;
+                  return (
+                    <div key={p.l} className={`rounded-xl p-2.5 text-center border ${p.on ? "border-primary/30 bg-primary/5" : "border-border bg-secondary/40 opacity-60"}`}>
+                      <Icon className={`w-4 h-4 mx-auto ${p.on ? "text-primary" : "text-muted-foreground"}`} />
+                      <div className="text-[11px] mt-1">{p.l}</div>
+                      <div className="text-[9px] text-muted-foreground mt-0.5">{p.best}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+
+            {/* 健管师备注 */}
+            <Section title="健管师备注 ✏️">
+              <div className="rounded-lg bg-warning/5 border border-warning/20 p-3 text-sm leading-relaxed">
+                客户性格内敛、不爱主动表达。家中老伴去年离世，需特别关注情绪状态；
+                喜欢早上散步，建议沟通安排在 9 点后；对甜食控制力较弱，需常规提醒。
+              </div>
+              <button onClick={() => toast.success("已进入编辑")} className="w-full mt-2 py-2 rounded-lg bg-secondary text-xs">编辑备注</button>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 档案 ===== */}
+        {tab === "archive" && (
+          <>
+            <Section title="健康档案">
+              <div className="space-y-3 text-sm">
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">病种</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {c.diseases.map(d => <span key={d} className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary">{d}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">过敏史</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {["青霉素", "海鲜"].map(d => <span key={d} className="text-xs px-2 py-0.5 rounded bg-danger/10 text-danger">{d}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">既往史</div>
+                  <ul className="text-sm space-y-0.5">
+                    <li>· 2018 年阑尾炎手术</li>
+                    <li>· 2021 年白内障手术</li>
+                    <li>· 长期高血压病史 12 年</li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">当前用药</div>
+                  <div className="space-y-1.5">
+                    {[
+                      { n: "二甲双胍", d: "0.5g · 一日两次 · 餐后" },
+                      { n: "厄贝沙坦", d: "150mg · 一日一次 · 早晨" },
+                      { n: "阿托伐他汀", d: "20mg · 睡前" },
+                    ].map(m => (
+                      <div key={m.n} className="flex items-start gap-2 text-sm bg-secondary/40 rounded-lg px-2.5 py-1.5">
+                        <Pill className="w-3.5 h-3.5 mt-0.5 text-primary shrink-0" />
+                        <div><span className="font-medium">{m.n}</span><span className="ml-1 text-[11px] text-muted-foreground">{m.d}</span></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Section>
+
+            {/* 服务包详情 */}
+            <Section title="服务包详情">
+              <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
+                <div className="text-xs opacity-90">{c.package}</div>
+                <div className="text-base font-semibold mt-0.5">2026.01.01 - 2026.12.31</div>
+                <div className="text-[11px] opacity-90 mt-1">剩余 232 天</div>
+              </div>
+              <div className="mt-3 space-y-2.5">
+                {[
+                  { l: "健管师随访", used: 12, total: 30 },
+                  { l: "MDT 会诊", used: 2, total: 6 },
+                  { l: "上门服务", used: 1, total: 4 },
+                  { l: "专家门诊", used: 3, total: 12 },
+                ].map(b => (
+                  <div key={b.l}>
+                    <div className="flex justify-between text-xs mb-1"><span>{b.l}</span><span className="text-muted-foreground">{b.used}/{b.total} 次</span></div>
+                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div className="h-full bg-primary" style={{ width: `${(b.used/b.total)*100}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            {/* 生活偏好 */}
+            <Section title="生活偏好">
+              <div className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary" />AI 从打卡数据自动分析</div>
+              <div className="flex flex-wrap gap-1.5">
+                {["早起 6:30", "晨练步行", "口味偏咸", "喜甜食", "睡前阅读", "不吸烟", "偶尔饮酒"].map(t => (
+                  <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">{t}</span>
+                ))}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-3 mb-2">健管师手动添加</div>
+              <div className="flex flex-wrap gap-1.5">
+                {["女儿陪伴重要", "信任老朋友推荐", "怕打针"].map(t => (
+                  <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-warning/10 text-[oklch(0.5_0.13_75)]">{t}</span>
+                ))}
+                <button onClick={() => toast.success("已新增标签")} className="text-xs px-2 py-0.5 rounded-full border border-dashed border-border text-muted-foreground">+ 添加</button>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 趋势 30/90/自定义 ===== */}
+        {tab === "trend" && (
+          <>
+            <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs">
+              {(["30", "90", "custom"] as const).map(r => (
+                <button key={r} onClick={() => { setTrendRange(r); if (r === "custom") toast.info("打开日期选择器"); }}
+                  className={`flex-1 py-1.5 rounded-lg ${trendRange === r ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
+                  {r === "30" ? "近 30 天" : r === "90" ? "近 90 天" : "自定义"}
+                </button>
+              ))}
+            </div>
+
+            {[
+              { l: "血糖 (mmol/L)",   data: [6.2, 7.1, 6.8, 9.2, 5.4, 7.8, 6.5, 8.1, 5.9, 6.7, 7.3, 6.4], color: "var(--primary)", unit: "" },
+              { l: "血压 (mmHg 收缩压)", data: [132, 138, 142, 152, 145, 138, 135, 130, 142, 148, 138, 132], color: "oklch(0.65 0.2 25)", unit: "" },
+              { l: "体重 (kg)",       data: [68.2, 68.0, 67.8, 67.9, 67.5, 67.6, 67.4, 67.2, 67.0, 67.1, 66.9, 66.8], color: "oklch(0.7 0.15 145)", unit: "" },
+              { l: "情绪 (1-5)",      data: [4, 4, 3, 3, 2, 3, 3, 4, 4, 3, 4, 5], color: "oklch(0.7 0.15 75)", unit: "" },
+            ].map(s => {
+              const max = Math.max(...s.data); const min = Math.min(...s.data);
+              const range = max - min || 1;
+              return (
+                <Section key={s.l} title={s.l}>
+                  <div className="flex items-end h-24 gap-1">
+                    {s.data.map((v, i) => (
+                      <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${((v-min)/range)*90+10}%`, background: s.color, opacity: 0.85 }} />
+                    ))}
+                  </div>
+                  <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                    <span>{trendRange === "30" ? "30 天前" : trendRange === "90" ? "90 天前" : "起始"}</span>
+                    <span>当前 {s.data[s.data.length-1]}{s.unit}</span>
+                  </div>
+                </Section>
+              );
+            })}
+          </>
+        )}
+
+        {/* ===== 沟通历史（CM-C 组）===== */}
+        {tab === "history" && (
+          <>
+            <Section title="AI 历史触点摘要">
+              <p className="text-sm leading-relaxed text-foreground">
+                近 30 天共触达 <b>14 次</b>（电话 4、IM 8、视频 1、上门 1）。
+                主要话题：<span className="text-primary">血糖控制</span>、
+                <span className="text-primary">用药依从性</span>、
+                <span className="text-primary">情绪关怀</span>。客户最关心：
+                <span className="text-warning">"夜间低血糖如何避免"</span>。
+              </p>
+            </Section>
+
+            <Section title="沟通时间线">
+              {[
+                { t: "今天 08:30", icon: Phone,         type: "电话", d: "低血糖处置回访 5'12\"" },
+                { t: "昨天 19:00", icon: MessageSquare, type: "IM",   d: "推送晚餐建议（低 GI）" },
+                { t: "5/12 14:30", icon: Video,         type: "视频", d: "MDT 会诊参与 32'" },
+                { t: "5/10 10:00", icon: HomeIcon,      type: "上门", d: "上门测量血糖 + 健康教育" },
+                { t: "5/08 09:15", icon: Mic,           type: "语音", d: "用药提醒语音 23\"" },
+              ].map((e, i) => {
+                const Icon = e.icon;
+                return (
+                  <div key={i} className="flex gap-3 py-2 border-b border-border last:border-0">
+                    <div className="flex flex-col items-center">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center"><Icon className="w-3.5 h-3.5 text-primary" /></div>
+                      <div className="flex-1 w-px bg-border mt-1" />
+                    </div>
+                    <div className="flex-1 pb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary">{e.type}</span>
+                        <span className="text-[11px] text-muted-foreground">{e.t}</span>
+                      </div>
+                      <div className="text-sm mt-0.5">{e.d}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </Section>
+
+            {/* 变化雷达（CM-D） */}
+            <Section title="变化雷达 · 异常告警">
+              <div className="space-y-2">
+                {[
+                  { p: "P0", c: "danger",  t: "关键指标变化", d: "HbA1c 由 6.8 → 7.4 (↑0.6)" },
+                  { p: "P0", c: "danger",  t: "行为异常", d: "连续 3 天打卡质量下降" },
+                  { p: "P1", c: "warning", t: "关系变化", d: "近 7 天家人互动 -40%" },
+                  { p: "P1", c: "warning", t: "重要日期", d: "下周三 生日（建议送祝福）" },
+                  { p: "P0", c: "danger",  t: "续费机会", d: "服务包 30 天后到期" },
+                ].map((a, i) => (
+                  <div key={i} className={`flex items-start gap-2 p-2.5 rounded-lg ${a.c === "danger" ? "bg-danger/5" : "bg-warning/5"}`}>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${a.c === "danger" ? "bg-danger/15 text-danger" : "bg-warning/15 text-[oklch(0.5_0.13_75)]"}`}>{a.p}</span>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">{a.t}</div>
+                      <div className="text-[11px] text-muted-foreground">{a.d}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="问诊 + 医嘱历史">
+              {[
+                { t: "5/14 赵主任", d: "继续当前方案，2 周后复查 HbA1c" },
+                { t: "4/28 钱药师", d: "二甲双胍餐后服用，监测低血糖" },
+              ].map((r, i) => (
+                <div key={i} className="py-2 border-b border-border last:border-0">
+                  <div className="text-[11px] text-muted-foreground">{r.t}</div>
+                  <div className="text-sm mt-0.5">{r.d}</div>
+                </div>
+              ))}
+            </Section>
+
+            <Section title="客户情绪轨迹（30 天）">
+              <div className="flex items-end h-16 gap-1">
+                {[3,4,4,3,2,2,3,3,4,4,5,4,3,3,4,4,3,2,3,4,4,5,4,3,3,4,4,4,5,5].map((v,i)=>(
+                  <div key={i} className="flex-1 rounded-t-sm" style={{ height: `${v*20}%`, background: v>=4?"oklch(0.7 0.15 145)":v>=3?"oklch(0.7 0.15 75)":"oklch(0.65 0.2 25)" }} />
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                <span>30天前</span><span>今日 5/5 ↗</span>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 家庭视图（CM-E）===== */}
+        {tab === "family" && (
+          <>
+            <Section title="家庭结构图">
+              <div className="flex flex-col items-center gap-2">
+                {/* 上一代 */}
+                <div className="flex gap-3">
+                  {[{n:"父", a:95, dead:true}].map(m => (
+                    <FamilyNode key={m.n} {...m} />
+                  ))}
+                </div>
+                <div className="w-px h-3 bg-border" />
+                {/* 本代 */}
+                <div className="flex gap-3 items-center">
+                  <FamilyNode n={c.name[0]} a={c.age} self />
+                  <div className="text-[10px] text-muted-foreground">— 配偶 —</div>
+                  <FamilyNode n="妻" a={c.age - 2} />
+                </div>
+                <div className="w-px h-3 bg-border" />
+                {/* 下一代 */}
+                <div className="flex gap-3">
+                  <FamilyNode n="儿" a={42} authorized />
+                  <FamilyNode n="女" a={38} authorized />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="各家人健康概览">
+              {[
+                { n: "妻 周阿姨", age: 70, st: "有高血压、骨质疏松", color: "warning" },
+                { n: "儿 张强",   age: 42, st: "亚健康，体检正常", color: "success" },
+                { n: "女 张敏",   age: 38, st: "孕中期 28 周",     color: "primary" },
+              ].map(m => (
+                <div key={m.n} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                  <div className="w-9 h-9 rounded-full bg-secondary flex items-center justify-center text-sm">{m.n[0]}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">{m.n} <span className="text-[11px] text-muted-foreground">{m.age}岁</span></div>
+                    <div className="text-[11px] text-muted-foreground">{m.st}</div>
+                  </div>
+                  <span className={`w-2 h-2 rounded-full ${m.color === "warning" ? "bg-warning" : m.color === "success" ? "bg-success" : "bg-primary"}`} />
+                </div>
+              ))}
+            </Section>
+
+            <Section title="家庭互动频率（家人间冷暖）">
+              <div className="space-y-1.5">
+                {[
+                  { p: "本人 ↔ 女儿", v: 92, hot: true },
+                  { p: "本人 ↔ 妻子", v: 78, hot: true },
+                  { p: "本人 ↔ 儿子", v: 35, hot: false },
+                ].map(r => (
+                  <div key={r.p}>
+                    <div className="flex justify-between text-xs mb-1"><span>{r.p}</span><span className="text-muted-foreground">{r.v}%</span></div>
+                    <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                      <div className="h-full" style={{ width: `${r.v}%`, background: r.hot ? "oklch(0.65 0.2 25)" : "oklch(0.7 0.05 230)" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Section>
+
+            <Section title="紧急联系人">
+              {[
+                { n: "张敏（女儿）", t: "紧急", p: "138-0000-1234" },
+                { n: "张强（儿子）", t: "日常", p: "139-1111-5678" },
+              ].map(m => (
+                <div key={m.n} className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+                  <div className="flex-1">
+                    <div className="text-sm">{m.n} <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded ${m.t === "紧急" ? "bg-danger/10 text-danger" : "bg-secondary text-muted-foreground"}`}>{m.t}</span></div>
+                    <div className="text-[11px] text-muted-foreground">{m.p}</div>
+                  </div>
+                  <button onClick={() => toast.success(`正在拨打 ${m.n}`)} className="p-2 rounded-full bg-primary/10"><Phone className="w-3.5 h-3.5 text-primary" /></button>
+                </div>
+              ))}
+            </Section>
+
+            <Section title="授权关系（谁看得到谁的数据）">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">允许</span>女儿张敏 → 全部数据</div>
+                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-primary/10 text-primary">允许</span>妻子 → 用药 + 复诊提醒</div>
+                <div className="flex items-center gap-2"><span className="px-1.5 py-0.5 text-[10px] rounded bg-secondary text-muted-foreground">禁用</span>儿子 → 暂未授权</div>
+              </div>
+            </Section>
+          </>
+        )}
+
+        {/* ===== 服务记录 ===== */}
+        {tab === "log" && (
           <>
             <Section title="五人团">
               <div className="space-y-2">
@@ -517,46 +931,69 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
                 ))}
               </div>
             </Section>
-            <Section title="最近一次触达">
-              <div className="text-sm">{c.lastTouch}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">{c.note}</div>
+            <Section title="服务记录">
+              {[
+                { t: "今天 08:30", d: "电话回访低血糖处置，已恢复" },
+                { t: "昨天 19:00", d: "推送晚餐建议（低 GI）" },
+                { t: "前天 15:20", d: "完成 MDT 会诊纪要" },
+                { t: "5/10",      d: "上门服务 + 健康宣教" },
+                { t: "5/08",      d: "服务包权益使用提醒" },
+              ].map((l, i) => (
+                <div key={i} className="py-2 border-b border-border last:border-0">
+                  <div className="text-[11px] text-muted-foreground">{l.t}</div>
+                  <div className="text-sm mt-0.5">{l.d}</div>
+                </div>
+              ))}
             </Section>
           </>
         )}
-        {tab === "metric" && (
-          <Section title="近 24h 监测">
-            <div className="grid grid-cols-2 gap-2">
-              {c.metrics.bg     !== undefined && <Metric label="血糖"   value={`${c.metrics.bg} mmol/L`} />}
-              {c.metrics.bp     !== undefined && <Metric label="血压"   value={c.metrics.bp!} />}
-              {c.metrics.weight !== undefined && <Metric label="体重"   value={`${c.metrics.weight} kg`} />}
-              {c.metrics.mood   !== undefined && <Metric label="情绪"   value={`${c.metrics.mood}/5`} />}
-            </div>
-          </Section>
-        )}
-        {tab === "plan" && (
-          <Section title="管理方案">
-            <ul className="text-sm space-y-2">
-              <li className="flex items-start gap-2"><Pill className="w-4 h-4 mt-0.5 text-primary" />二甲双胍 0.5g bid</li>
-              <li className="flex items-start gap-2"><Activity className="w-4 h-4 mt-0.5 text-primary" />每周 3 次有氧 30 分钟</li>
-              <li className="flex items-start gap-2"><FileText className="w-4 h-4 mt-0.5 text-primary" />每月 1 次糖化血红蛋白复查</li>
-            </ul>
-          </Section>
-        )}
-        {tab === "log" && (
-          <Section title="服务记录">
-            {[
-              { t: "今天 08:30", d: "电话回访低血糖处置，已恢复" },
-              { t: "昨天 19:00", d: "推送晚餐建议（低 GI）" },
-              { t: "前天 15:20", d: "完成 MDT 会诊纪要" },
-            ].map((l, i) => (
-              <div key={i} className="py-2 border-b border-border last:border-0">
-                <div className="text-[11px] text-muted-foreground">{l.t}</div>
-                <div className="text-sm mt-0.5">{l.d}</div>
-              </div>
-            ))}
-          </Section>
-        )}
       </div>
+
+      {/* === 进入弹窗：客户简介 === */}
+      {showIntro && (
+        <div className="absolute inset-0 z-30 bg-black/60 flex items-center justify-center p-5 animate-in fade-in duration-200">
+          <div className="w-full bg-card rounded-2xl p-5 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-[image:var(--gradient-primary)] text-primary-foreground flex items-center justify-center text-base font-medium">{c.name[0]}</div>
+              <div>
+                <div className="text-base font-semibold flex items-center gap-1.5">{c.name} <Sparkles className="w-3.5 h-3.5 text-primary" /></div>
+                <div className="text-[11px] text-muted-foreground">AI 一句话简介</div>
+              </div>
+            </div>
+            <p className="text-sm leading-relaxed text-foreground">{intro}</p>
+            <button onClick={() => setShowIntro(false)}
+              className="w-full mt-4 py-2.5 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground font-medium text-sm">
+              知道了
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* 家庭节点 */
+function FamilyNode({ n, a, self, dead, authorized }: { n: string; a: number; self?: boolean; dead?: boolean; authorized?: boolean }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
+        self ? "bg-[image:var(--gradient-primary)] text-primary-foreground" :
+        dead ? "bg-secondary text-muted-foreground line-through" :
+        authorized ? "bg-primary/15 text-primary border-2 border-primary/40" :
+        "bg-secondary text-foreground"
+      }`}>{n}</div>
+      <div className="text-[10px] text-muted-foreground mt-0.5">{a}岁</div>
+    </div>
+  );
+}
+
+/* 信息行 */
+function InfoRow({ label, value, icon: Icon }: { label: string; value: string; icon?: typeof MapPin }) {
+  return (
+    <div className="flex items-center gap-2">
+      {Icon && <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />}
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className="text-sm">{value}</span>
     </div>
   );
 }
@@ -571,6 +1008,7 @@ function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
     { from: "me",   text: "好的，我马上协助您，请放心。", time: "09:14" },
   ]);
   const [input, setInput] = useState("");
+  const [showQuick, setShowQuick] = useState(false);
   const send = () => {
     if (!input.trim()) return;
     setMsgs(m => [...m, { from: "me", text: input, time: "现在" }]);
@@ -579,6 +1017,21 @@ function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
       setMsgs(m => [...m, { from: "them", text: "收到，谢谢健管师！", time: "现在" }]);
     }, 700);
   };
+  // 快捷操作面板项
+  const quickActions: { label: string; icon: typeof BookOpen; color: string; onClick: () => void }[] = [
+    { label: "话术库",   icon: BookOpen,    color: "bg-primary/10 text-primary",       onClick: () => { setMsgs(m => [...m, { from: "me", text: "[话术] {客户}您好，今天感觉如何？昨晚的睡眠质量怎样呢？", time: "现在" }]); setShowQuick(false); toast.success("话术已发送"); } },
+    { label: "宣教",     icon: BookMarked,  color: "bg-success/10 text-success",       onClick: () => { setMsgs(m => [...m, { from: "me", text: "[宣教] 已为您推送《糖尿病饮食指南》，请查收 ▶", time: "现在" }]); setShowQuick(false); toast.success("宣教内容已推送"); } },
+    { label: "服务包",   icon: Package,     color: "bg-warning/10 text-[oklch(0.5_0.13_75)]", onClick: () => { setMsgs(m => [...m, { from: "me", text: "[服务包] 您当前为「金卡 · 全周期」，本月已使用 12/30 次随访 ▶", time: "现在" }]); setShowQuick(false); toast.info("服务包详情已发送"); } },
+    { label: "预约",     icon: Calendar,    color: "bg-primary/10 text-primary",       onClick: () => { setMsgs(m => [...m, { from: "me", text: "[预约] 已为您预约 周三 14:00 赵主任专家门诊，请确认 ▶", time: "现在" }]); setShowQuick(false); toast.success("预约卡已发送"); } },
+    { label: "图片",     icon: ImageIcon,   color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.info("打开图片选择器"); } },
+    { label: "语音",     icon: Mic,         color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.info("按住说话…"); } },
+    { label: "视频",     icon: Video,       color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.success(`正在邀请 ${c.name} 视频`); } },
+    { label: "上门",     icon: HomeIcon,    color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.success("已发起上门服务工单"); } },
+    { label: "调取报告", icon: FileText,    color: "bg-secondary text-foreground",     onClick: () => { setMsgs(m => [...m, { from: "me", text: "[报告] 4 月健康月报 已发送 ▶", time: "现在" }]); setShowQuick(false); toast.success("报告已发送"); } },
+    { label: "MDT 邀请", icon: Stethoscope, color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.success("已发起 MDT 会诊邀请"); } },
+    { label: "快速打卡", icon: ClipboardList,color:"bg-secondary text-foreground",     onClick: () => { setMsgs(m => [...m, { from: "me", text: "[打卡] 请协助完成今日血糖打卡 ▶", time: "现在" }]); setShowQuick(false); } },
+    { label: "送祝福",   icon: Gift,        color: "bg-secondary text-foreground",     onClick: () => { setMsgs(m => [...m, { from: "me", text: "🎂 祝您生日快乐，身体康健！", time: "现在" }]); setShowQuick(false); toast.success("祝福已送达"); } },
+  ];
   return (
     <div className="flex flex-col h-full">
       <PageHeader title={c.name} pop={pop}
@@ -595,14 +1048,48 @@ function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
           </div>
         ))}
       </div>
+      {/* 横滑快捷操作条 — 永久可见 */}
+      <div className="border-t border-border bg-card px-2 py-2 flex gap-2 overflow-x-auto">
+        {quickActions.slice(0, 4).map(a => {
+          const Icon = a.icon;
+          return (
+            <button key={a.label} onClick={a.onClick}
+              className="flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-lg active:bg-secondary shrink-0">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${a.color}`}>
+                <Icon className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] text-muted-foreground">{a.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {/* 输入栏 */}
       <div className="border-t border-border bg-card p-2 flex items-center gap-2">
-        <button onClick={() => toast.info("打开图片选择器")} className="p-2 rounded-lg active:bg-secondary"><ImageIcon className="w-5 h-5 text-muted-foreground" /></button>
-        <button onClick={() => toast.info("按住说话…")} className="p-2 rounded-lg active:bg-secondary"><Mic className="w-5 h-5 text-muted-foreground" /></button>
+        <button onClick={() => setShowQuick(s => !s)} className={`p-2 rounded-lg active:bg-secondary ${showQuick ? "bg-secondary" : ""}`}>
+          {showQuick ? <X className="w-5 h-5 text-foreground" /> : <Plus className="w-5 h-5 text-muted-foreground" />}
+        </button>
         <input value={input} onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
           className="flex-1 px-3 py-2 text-sm rounded-full bg-secondary focus:outline-none" placeholder="输入消息…" />
         <button onClick={send} className="p-2 rounded-full bg-primary text-primary-foreground active:scale-95"><Send className="w-4 h-4" /></button>
       </div>
+      {/* 展开的快捷操作面板 (12 项) */}
+      {showQuick && (
+        <div className="border-t border-border bg-card p-3 grid grid-cols-4 gap-3">
+          {quickActions.map(a => {
+            const Icon = a.icon;
+            return (
+              <button key={a.label} onClick={a.onClick}
+                className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${a.color}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] text-foreground">{a.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1054,4 +1541,174 @@ function RowBtn({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 // 仅做类型对齐占位（避免 lint 未使用警告）
-void MoreHorizontal; void Filter;
+void MoreHorizontal; void Heart; void Users2; void Smile; void Clipboard;
+
+/* ============================================================
+ * 首次登录工作台总结弹窗（对应文档示例图：今日工作台）
+ * ============================================================ */
+function WelcomeBriefing({ onClose }: { onClose: () => void }) {
+  const top10 = [
+    { tag: "紧急", c: "danger",  d: "王奶奶 78 岁 糖尿病 昨夜血糖 3.8", sub: "AI 话术建议 + 一键电话" },
+    { tag: "紧急", c: "danger",  d: "陈叔 65 岁 心脏病 CGM 心率持续偏快", sub: "建议先视频了解情况" },
+    { tag: "紧急", c: "danger",  d: "刘阿姨 情绪打卡连续低落 3 天", sub: "建议语音关怀" },
+    { tag: "关怀", c: "warning", d: "断签 7 天客户 3 位（AI 话术已准备）", sub: "" },
+    { tag: "到期", c: "primary", d: "赵女士 服务包下周到期", sub: "续费机会" },
+  ];
+  return (
+    <div className="absolute inset-0 z-40 bg-black/60 flex items-end animate-in fade-in duration-200">
+      <div className="w-full bg-card rounded-t-3xl max-h-[90%] overflow-hidden flex flex-col">
+        {/* 头部 */}
+        <div className="px-5 pt-5 pb-3 bg-[image:var(--gradient-primary)] text-primary-foreground">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-xs opacity-90">{new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" })}</div>
+              <div className="text-lg font-semibold mt-0.5">早安林姐 ☀️</div>
+              <div className="text-[12px] opacity-90 mt-0.5">您今天服务中客户 <b>78</b> 位</div>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-full bg-white/15"><X className="w-4 h-4" /></button>
+          </div>
+          <div className="grid grid-cols-4 gap-2 mt-3">
+            {[
+              { l: "今日关注", v: 7 },
+              { l: "紧急",     v: 3 },
+              { l: "新异常",   v: 2 },
+              { l: "续费到期", v: 1 },
+            ].map(k => (
+              <div key={k.l} className="bg-white/15 rounded-lg p-2 text-center">
+                <div className="text-[10px] opacity-80">{k.l}</div>
+                <div className="text-xl font-semibold">{k.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top 10 */}
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          <div className="text-xs font-semibold mb-2 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />今日 Top 5 关注客户
+          </div>
+          <div className="space-y-2">
+            {top10.map((it, i) => (
+              <div key={i} className="rounded-xl border border-border bg-card p-3 flex items-start gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center shrink-0">{i+1}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      it.c === "danger" ? "bg-danger/10 text-danger" :
+                      it.c === "warning" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
+                      "bg-primary/10 text-primary"
+                    }`}>{it.tag}</span>
+                    <span className="text-sm">{it.d}</span>
+                  </div>
+                  {it.sub && <div className="text-[11px] text-primary mt-0.5">· {it.sub}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-xl bg-secondary/60 p-3">
+            <div className="text-xs font-semibold mb-1.5">本周团队总览</div>
+            <div className="text-[11px] text-muted-foreground leading-relaxed">
+              在管 86 位 · 本周触点 412 / 480（86%）· 团队完成率 91%
+              <br />今日上海 多云 18°-26°，适合户外散步（可作为客户问候话题）
+            </div>
+          </div>
+        </div>
+
+        {/* 底部按钮 */}
+        <div className="p-4 border-t border-border bg-card">
+          <button onClick={onClose}
+            className="w-full py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground font-medium text-sm">
+            开始今日工作 →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * 客户列表 — 多条件高级筛选抽屉
+ * ============================================================ */
+function AdvancedFilter({
+  allDiseases, allPkgs, adv, onChange, onClose,
+}: {
+  allDiseases: string[]; allPkgs: string[];
+  adv: { disease: string[]; ageRange: string; pkg: string[]; status: string[] };
+  onChange: (v: typeof adv) => void;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState(adv);
+  const toggle = (key: "disease" | "pkg" | "status", v: string) => {
+    setDraft(d => ({ ...d, [key]: d[key].includes(v) ? d[key].filter(x => x !== v) : [...d[key], v] }));
+  };
+  return (
+    <div className="absolute inset-0 z-40 bg-black/60 flex items-end" onClick={onClose}>
+      <div className="w-full bg-card rounded-t-3xl max-h-[88%] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <span className="text-base font-semibold">多条件筛选</span>
+          <button onClick={onClose}><X className="w-5 h-5" /></button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <FilterGroup title="病种">
+            <div className="flex flex-wrap gap-1.5">
+              {allDiseases.map(d => (
+                <FilterChip key={d} active={draft.disease.includes(d)} onClick={() => toggle("disease", d)}>{d}</FilterChip>
+              ))}
+            </div>
+          </FilterGroup>
+          <FilterGroup title="年龄段">
+            <div className="grid grid-cols-5 gap-1.5">
+              {[
+                { k: "all",    l: "不限" },
+                { k: "<45",    l: "<45" },
+                { k: "45-60",  l: "45-60" },
+                { k: "60-70",  l: "60-70" },
+                { k: ">70",    l: ">70" },
+              ].map(o => (
+                <FilterChip key={o.k} active={draft.ageRange === o.k} onClick={() => setDraft(d => ({ ...d, ageRange: o.k }))}>{o.l}</FilterChip>
+              ))}
+            </div>
+          </FilterGroup>
+          <FilterGroup title="服务包">
+            <div className="flex flex-wrap gap-1.5">
+              {allPkgs.map(p => (
+                <FilterChip key={p} active={draft.pkg.includes(p)} onClick={() => toggle("pkg", p)}>{p}</FilterChip>
+              ))}
+            </div>
+          </FilterGroup>
+          <FilterGroup title="客户状态（分层）">
+            <div className="flex flex-wrap gap-1.5">
+              {(["urgent","abnormal","stable","new","churnRisk"] as CustomerLayer[]).map(s => (
+                <FilterChip key={s} active={draft.status.includes(s)} onClick={() => toggle("status", s)}>{layerMeta[s].label}</FilterChip>
+              ))}
+            </div>
+          </FilterGroup>
+        </div>
+        <div className="p-4 border-t border-border bg-card flex gap-2">
+          <button onClick={() => setDraft({ disease: [], ageRange: "all", pkg: [], status: [] })}
+            className="flex-1 py-3 rounded-xl bg-secondary text-sm font-medium">重置</button>
+          <button onClick={() => { onChange(draft); onClose(); toast.success("筛选已应用"); }}
+            className="flex-[2] py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground font-medium text-sm">应用筛选</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-xs text-muted-foreground mb-2">{title}</div>
+      {children}
+    </div>
+  );
+}
+function FilterChip({ children, active, onClick }: { children: React.ReactNode; active: boolean; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className={`text-xs px-3 py-1.5 rounded-full border transition ${
+        active ? "bg-primary text-primary-foreground border-primary" : "bg-card text-foreground border-border active:bg-secondary"
+      }`}>{children}</button>
+  );
+}
