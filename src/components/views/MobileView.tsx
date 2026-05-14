@@ -79,7 +79,7 @@ export function MobileView() {
         )}
         {top.name === "task"          && <TaskDetail id={top.id} pop={pop} taskState={taskState} toggleTask={toggleTask} />}
         {top.name === "customer"      && <CustomerDetail id={top.id} pop={pop} push={push} />}
-        {top.name === "chat"          && <ChatScreen id={top.id} pop={pop} />}
+        {top.name === "chat"          && <ChatScreen id={top.id} pop={pop} nav={push} />}
         {top.name === "notifications" && <Notifications pop={pop} />}
         {top.name === "search"        && <SearchScreen pop={pop} push={push} />}
         {top.name === "addCustomer"   && <AddCustomer pop={pop} />}
