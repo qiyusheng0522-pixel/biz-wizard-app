@@ -89,6 +89,11 @@ export function MobileView() {
         {top.name === "mdt"           && <MdtRecords pop={pop} />}
         {top.name === "settings"      && <SettingsScreen pop={pop} />}
         {top.name === "profile"       && <ProfileEdit pop={pop} />}
+        {top.name === "groupInfo"     && <GroupInfo id={top.id} pop={pop} push={push} />}
+        {top.name === "callSummary"   && <CallSummary id={top.id} kind={top.kind} pop={pop} />}
+        {top.name === "messageBoard"  && <MessageBoard id={top.id} pop={pop} />}
+        {top.name === "contactRoster" && <ContactRoster pop={pop} />}
+        {top.name === "imSearch"      && <ImSearch pop={pop} push={push} />}
       </div>
 
       {/* 底部 Tab Bar — 仅在根栈显示 */}
