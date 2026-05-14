@@ -8,6 +8,7 @@ import {
   Plus, Filter, MoreHorizontal, FileText, Pill, Activity, Calendar, Star, Copy, BookOpen,
   TrendingUp, Award, Stethoscope, ClipboardList, Settings, LogOut, ShieldCheck, Clock,
   X, MapPin, AlertCircle, Heart, Users2, Package, Smile, BookMarked, Gift, Clipboard, Home as HomeIcon,
+  RotateCw, ChevronDown, Play, CalendarDays, Flame,
 } from "lucide-react";
 
 /**
