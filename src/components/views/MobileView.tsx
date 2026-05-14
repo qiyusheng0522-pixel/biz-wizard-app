@@ -1502,7 +1502,7 @@ type ChatMsg = {
   recalled?: boolean;
   attach?: { kind: "image" | "file" | "voice" | "card"; meta: string; transcript?: string };
 };
-function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
+function ChatScreen({ id, pop, nav }: { id: string; pop: () => void; nav: (s: Stack) => void }) {
   const c = customers.find(x => x.id === id) as Customer;
   // 紧急/异常客户默认为患者群（家人 + 护士 + 健管师 + 患者）
   const isGroup = c.layer === "urgent" || c.layer === "abnormal";
@@ -1585,7 +1585,7 @@ function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
       {/* 头部 */}
       <div className="sticky top-0 z-20 bg-card/95 backdrop-blur border-b border-border px-2 py-2 flex items-center gap-1">
         <button onClick={pop} className="p-1.5 rounded-lg hover:bg-secondary"><ChevronLeft className="w-5 h-5" /></button>
-        <button onClick={() => isGroup ? push2GroupInfo() : setShowProfile(true)} className="flex-1 text-left px-1">
+        <button onClick={() => isGroup ? nav({ name: "groupInfo", id: c.id }) : setShowProfile(true)} className="flex-1 text-left px-1">
           <div className="text-sm font-semibold flex items-center gap-1.5">
             {isGroup ? `${c.name} · 患者群` : c.name}
             {isGroup && <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">{groupMembers.length} 人</span>}
@@ -1768,15 +1768,9 @@ function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
       {/* —— 弹层：留言 —— */}
       {showLeave && <LeaveMessage c={c} onClose={() => setShowLeave(false)} onDone={(text) => { push({ from: "me", fromRole: "self", text: `[留言] ${text}` }); toast.success("留言已发送，同步至档案"); setShowLeave(false); }} />}
       {/* —— 弹层：结束沟通 → AI 摘要 —— */}
-      {showEndPanel && <EndChatPanel c={c} kind="text" onClose={() => setShowEndPanel(false)} />}
+      {showEndPanel && <EndChatPanel c={c} kind="text" onClose={() => setShowEndPanel(false)} onConfirm={() => { setShowEndPanel(false); nav({ name: "callSummary", id: c.id, kind: "text" }); }} />}
     </div>
   );
-
-  function push2GroupInfo() {
-    // 受 React 函数命名冲突影响，这里用一次性回调通知外层 push 推入 groupInfo
-    // 通过一个 hack：触发自定义事件由 MobileView 监听
-    window.dispatchEvent(new CustomEvent("im-open-group", { detail: { id: c.id } }));
-  }
 }
 
 /* ---------- 客户画像速览（弹窗） ---------- */
