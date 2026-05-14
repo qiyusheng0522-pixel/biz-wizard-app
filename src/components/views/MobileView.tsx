@@ -36,6 +36,8 @@ export function MobileView() {
   const [taskState, setTaskState] = useState<Record<string, boolean>>(
     Object.fromEntries(tasks.map(t => [t.id, !!t.done]))
   );
+  // 首次登录工作台总结弹窗（每次进入预览都会展示，方便验收）
+  const [showWelcome, setShowWelcome] = useState(true);
 
   const top = stack[stack.length - 1];
   const push = (s: Stack) => setStack(prev => [...prev, s]);
@@ -105,6 +107,9 @@ export function MobileView() {
       )}
 
       <Toaster position="top-center" />
+      {showWelcome && top.name === "tabs" && tab === "home" && (
+        <WelcomeBriefing onClose={() => setShowWelcome(false)} />
+      )}
     </div>
   );
 }
