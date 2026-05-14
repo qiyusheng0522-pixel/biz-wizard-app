@@ -624,6 +624,7 @@ function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
     { from: "me",   text: "好的，我马上协助您，请放心。", time: "09:14" },
   ]);
   const [input, setInput] = useState("");
+  const [showQuick, setShowQuick] = useState(false);
   const send = () => {
     if (!input.trim()) return;
     setMsgs(m => [...m, { from: "me", text: input, time: "现在" }]);
@@ -632,6 +633,21 @@ function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
       setMsgs(m => [...m, { from: "them", text: "收到，谢谢健管师！", time: "现在" }]);
     }, 700);
   };
+  // 快捷操作面板项
+  const quickActions: { label: string; icon: typeof BookOpen; color: string; onClick: () => void }[] = [
+    { label: "话术库",   icon: BookOpen,    color: "bg-primary/10 text-primary",       onClick: () => { setMsgs(m => [...m, { from: "me", text: "[话术] {客户}您好，今天感觉如何？昨晚的睡眠质量怎样呢？", time: "现在" }]); setShowQuick(false); toast.success("话术已发送"); } },
+    { label: "宣教",     icon: BookMarked,  color: "bg-success/10 text-success",       onClick: () => { setMsgs(m => [...m, { from: "me", text: "[宣教] 已为您推送《糖尿病饮食指南》，请查收 ▶", time: "现在" }]); setShowQuick(false); toast.success("宣教内容已推送"); } },
+    { label: "服务包",   icon: Package,     color: "bg-warning/10 text-[oklch(0.5_0.13_75)]", onClick: () => { setMsgs(m => [...m, { from: "me", text: "[服务包] 您当前为「金卡 · 全周期」，本月已使用 12/30 次随访 ▶", time: "现在" }]); setShowQuick(false); toast.info("服务包详情已发送"); } },
+    { label: "预约",     icon: Calendar,    color: "bg-primary/10 text-primary",       onClick: () => { setMsgs(m => [...m, { from: "me", text: "[预约] 已为您预约 周三 14:00 赵主任专家门诊，请确认 ▶", time: "现在" }]); setShowQuick(false); toast.success("预约卡已发送"); } },
+    { label: "图片",     icon: ImageIcon,   color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.info("打开图片选择器"); } },
+    { label: "语音",     icon: Mic,         color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.info("按住说话…"); } },
+    { label: "视频",     icon: Video,       color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.success(`正在邀请 ${c.name} 视频`); } },
+    { label: "上门",     icon: HomeIcon,    color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.success("已发起上门服务工单"); } },
+    { label: "调取报告", icon: FileText,    color: "bg-secondary text-foreground",     onClick: () => { setMsgs(m => [...m, { from: "me", text: "[报告] 4 月健康月报 已发送 ▶", time: "现在" }]); setShowQuick(false); toast.success("报告已发送"); } },
+    { label: "MDT 邀请", icon: Stethoscope, color: "bg-secondary text-foreground",     onClick: () => { setShowQuick(false); toast.success("已发起 MDT 会诊邀请"); } },
+    { label: "快速打卡", icon: ClipboardList,color:"bg-secondary text-foreground",     onClick: () => { setMsgs(m => [...m, { from: "me", text: "[打卡] 请协助完成今日血糖打卡 ▶", time: "现在" }]); setShowQuick(false); } },
+    { label: "送祝福",   icon: Gift,        color: "bg-secondary text-foreground",     onClick: () => { setMsgs(m => [...m, { from: "me", text: "🎂 祝您生日快乐，身体康健！", time: "现在" }]); setShowQuick(false); toast.success("祝福已送达"); } },
+  ];
   return (
     <div className="flex flex-col h-full">
       <PageHeader title={c.name} pop={pop}
@@ -648,14 +664,48 @@ function ChatScreen({ id, pop }: { id: string; pop: () => void }) {
           </div>
         ))}
       </div>
+      {/* 横滑快捷操作条 — 永久可见 */}
+      <div className="border-t border-border bg-card px-2 py-2 flex gap-2 overflow-x-auto">
+        {quickActions.slice(0, 4).map(a => {
+          const Icon = a.icon;
+          return (
+            <button key={a.label} onClick={a.onClick}
+              className="flex flex-col items-center gap-0.5 px-2.5 py-1 rounded-lg active:bg-secondary shrink-0">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${a.color}`}>
+                <Icon className="w-4 h-4" />
+              </div>
+              <span className="text-[10px] text-muted-foreground">{a.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {/* 输入栏 */}
       <div className="border-t border-border bg-card p-2 flex items-center gap-2">
-        <button onClick={() => toast.info("打开图片选择器")} className="p-2 rounded-lg active:bg-secondary"><ImageIcon className="w-5 h-5 text-muted-foreground" /></button>
-        <button onClick={() => toast.info("按住说话…")} className="p-2 rounded-lg active:bg-secondary"><Mic className="w-5 h-5 text-muted-foreground" /></button>
+        <button onClick={() => setShowQuick(s => !s)} className={`p-2 rounded-lg active:bg-secondary ${showQuick ? "bg-secondary" : ""}`}>
+          {showQuick ? <X className="w-5 h-5 text-foreground" /> : <Plus className="w-5 h-5 text-muted-foreground" />}
+        </button>
         <input value={input} onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
           className="flex-1 px-3 py-2 text-sm rounded-full bg-secondary focus:outline-none" placeholder="输入消息…" />
         <button onClick={send} className="p-2 rounded-full bg-primary text-primary-foreground active:scale-95"><Send className="w-4 h-4" /></button>
       </div>
+      {/* 展开的快捷操作面板 (12 项) */}
+      {showQuick && (
+        <div className="border-t border-border bg-card p-3 grid grid-cols-4 gap-3">
+          {quickActions.map(a => {
+            const Icon = a.icon;
+            return (
+              <button key={a.label} onClick={a.onClick}
+                className="flex flex-col items-center gap-1.5 active:scale-95 transition">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${a.color}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] text-foreground">{a.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
