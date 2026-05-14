@@ -453,31 +453,184 @@ function MClient({ push }: { push: (s: Stack) => void }) {
 /* ============================================================
  * Tab 3：沟通列表
  * ============================================================ */
+/**
+ * 沟通模块 — 消息分类（客户 / 同事 / 系统 / 协同）
+ * - 顶部：分类 Tab + 检索 + 关注提醒
+ * - 客户：客户单聊或患者群（家人+协同人员）
+ * - 同事：内部协作单聊（医师/药师/营养师等）
+ * - 系统：平台/AI 提醒
+ * - 协同：跨角色任务的临时群（医师→健管师转交、MDT 邀约等）
+ */
+type ImCat = "customer" | "colleague" | "system" | "collab";
 function MIM({ push }: { push: (s: Stack) => void }) {
+  const [cat, setCat] = useState<ImCat>("customer");
+  // 客户消息：直接复用 customers
+  const colleagueChats = [
+    { id: "co-zhao", name: "赵主任 · 主管医师", role: "医师", last: "@林姐 王奶奶 MDT 我已加入", time: "10:42", unread: 2, online: true },
+    { id: "co-qian", name: "钱药师", role: "药师", last: "二甲双胍剂量调整建议已发出", time: "09:18", unread: 0, online: true },
+    { id: "co-sun",  name: "孙营养师", role: "营养师", last: "本周膳食模板更新 v3", time: "昨天", unread: 0, online: false },
+    { id: "co-zhou", name: "周教练", role: "康复师", last: "刘伯运动方案审核已通过", time: "昨天", unread: 0, online: false },
+    { id: "co-team", name: "五人团 · 内部群", role: "群聊", last: "李主管：本月 KPI 提前达成", time: "周一", unread: 5, online: true },
+  ];
+  const systemMsgs = [
+    { id: "sys-1", title: "AI · 异常预警", body: "张老爷子 凌晨血糖 3.8 mmol/L，建议立即关怀", time: "08:12", level: "danger" as const },
+    { id: "sys-2", title: "AI · 关注提示", body: "5 位客户 7 天未触达（含 2 位 churnRisk）", time: "今天", level: "warning" as const },
+    { id: "sys-3", title: "系统 · 排班",   body: "明日 14:00 王奶奶 MDT 已加入您的日程", time: "今天", level: "primary" as const },
+    { id: "sys-4", title: "系统 · KPI",    body: "本月触点完成 412/480（86%），保持良好", time: "昨天", level: "success" as const },
+    { id: "sys-5", title: "系统 · 升级",   body: "新增「语音转文字 + 沟通评分」功能，去体验", time: "昨天", level: "primary" as const },
+  ];
+  const collabMsgs = [
+    { id: "cb-1", title: "医师转交 · 赵主任 → 我", body: "王奶奶 化疗止吐方案，请 11:00 前回访", time: "10:30", urgent: true },
+    { id: "cb-2", title: "MDT 协同邀请",          body: "周阿姨 高血压+骨质 联合方案讨论",     time: "09:50", urgent: false },
+    { id: "cb-3", title: "护士 → 我",             body: "陈姐 上门换药已完成，附执行单",        time: "昨天", urgent: false },
+    { id: "cb-4", title: "AI · 协同建议",          body: "李叔 出差归来，建议联动孙老师调整膳食", time: "昨天", urgent: false },
+  ];
+
+  const total = customers.length + colleagueChats.length + systemMsgs.length + collabMsgs.length;
+  const cats: { k: ImCat; l: string; n: number }[] = [
+    { k: "customer",  l: "客户", n: customers.length },
+    { k: "colleague", l: "同事", n: colleagueChats.length },
+    { k: "system",    l: "系统", n: systemMsgs.length },
+    { k: "collab",    l: "协同", n: collabMsgs.length },
+  ];
+
   return (
     <div>
+      {/* 头部 */}
       <div className="px-4 py-3 flex items-center justify-between bg-card border-b border-border">
-        <h2 className="font-semibold">沟通</h2>
-        <button onClick={() => push({ name: "notifications" })}><Bell className="w-5 h-5 text-muted-foreground" /></button>
+        <div>
+          <h2 className="font-semibold">沟通</h2>
+          <div className="text-[10px] text-muted-foreground mt-0.5">{total} 条会话 · 7 条未读</div>
+        </div>
+        <div className="flex items-center gap-1">
+          <button onClick={() => push({ name: "imSearch" })} className="p-1.5 rounded-lg active:bg-secondary"><Search className="w-5 h-5 text-muted-foreground" /></button>
+          <button onClick={() => push({ name: "notifications" })} className="p-1.5 rounded-lg active:bg-secondary"><Bell className="w-5 h-5 text-muted-foreground" /></button>
+        </div>
       </div>
-      <div className="divide-y divide-border bg-card">
-        {customers.map(c => (
-          <button key={c.id} onClick={() => push({ name: "chat", id: c.id })}
-            className="w-full px-4 py-3 flex items-center gap-3 active:bg-secondary text-left">
-            <div className="relative">
-              <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center font-medium">{c.name[0]}</div>
-              {c.layer === "urgent" && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-danger border-2 border-card" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="font-medium text-sm">{c.name}</span>
-                <span className="text-[10px] text-muted-foreground">{c.lastTouch.split(" · ")[0]}</span>
-              </div>
-              <div className="text-xs text-muted-foreground truncate">{c.note}</div>
-            </div>
+
+      {/* 关注提醒条 — 来自 AI / 同事 */}
+      <div className="px-3 py-2 bg-warning/5 border-b border-warning/20 flex items-center gap-2 overflow-x-auto">
+        <Sparkles className="w-3.5 h-3.5 text-[oklch(0.5_0.13_75)] shrink-0" />
+        {[
+          { t: "AI", d: "@您 张老爷子需 5 分钟内回访", c: "danger" },
+          { t: "赵主任", d: "@您 王奶奶 MDT 11:00 准时", c: "primary" },
+          { t: "护士", d: "@您 陈姐 上门已完成，请确认", c: "success" },
+        ].map((r, i) => (
+          <button key={i} onClick={() => { setCat(i === 0 ? "system" : i === 1 ? "collab" : "collab"); toast.info(`${r.t}：${r.d}`); }}
+            className="shrink-0 text-[11px] px-2 py-1 rounded-full bg-card border border-border active:bg-secondary">
+            <span className={`mr-1 font-medium ${r.c === "danger" ? "text-danger" : r.c === "success" ? "text-success" : "text-primary"}`}>{r.t}</span>
+            {r.d}
           </button>
         ))}
       </div>
+
+      {/* 分类 Tab */}
+      <div className="px-3 pt-2 pb-2 bg-card flex gap-1 border-b border-border sticky top-0 z-10">
+        {cats.map(c => (
+          <button key={c.k} onClick={() => setCat(c.k)}
+            className={`flex-1 py-1.5 text-xs rounded-lg flex items-center justify-center gap-1 ${cat === c.k ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground active:bg-muted"}`}>
+            {c.l}<span className={`text-[10px] px-1 rounded ${cat === c.k ? "bg-white/20" : "bg-muted-foreground/10"}`}>{c.n}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 客户列表 */}
+      {cat === "customer" && (
+        <div className="divide-y divide-border bg-card">
+          {customers.map(c => (
+            <button key={c.id} onClick={() => push({ name: "chat", id: c.id })}
+              className="w-full px-4 py-3 flex items-center gap-3 active:bg-secondary text-left">
+              <div className="relative">
+                <div className="w-11 h-11 rounded-full bg-secondary flex items-center justify-center font-medium">{c.name[0]}</div>
+                {c.layer === "urgent" && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-danger border-2 border-card" />}
+                {/* 群聊标记：紧急客户默认带家人协同群 */}
+                {(c.layer === "urgent" || c.layer === "abnormal") && <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-primary-foreground border-2 border-card flex items-center justify-center"><Users2 className="w-2 h-2" /></span>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm flex items-center gap-1">
+                    {c.name}
+                    {c.layer === "urgent" && <span className="text-[9px] px-1 rounded bg-danger/10 text-danger">P0</span>}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">{c.lastTouch.split(" · ")[0]}</span>
+                </div>
+                <div className="text-xs text-muted-foreground truncate">{c.note}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 同事列表 */}
+      {cat === "colleague" && (
+        <div className="divide-y divide-border bg-card">
+          {colleagueChats.map(co => (
+            <button key={co.id} onClick={() => toast.info(`打开与 ${co.name} 的会话（演示）`)}
+              className="w-full px-4 py-3 flex items-center gap-3 active:bg-secondary text-left">
+              <div className="relative">
+                <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-medium">{co.name[0]}</div>
+                {co.online && <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-success border-2 border-card" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm">{co.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{co.time}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground truncate flex-1">{co.last}</span>
+                  {co.unread > 0 && <span className="text-[10px] px-1.5 rounded-full bg-danger text-white">{co.unread}</span>}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 系统消息 */}
+      {cat === "system" && (
+        <div className="divide-y divide-border bg-card">
+          {systemMsgs.map(m => (
+            <button key={m.id} onClick={() => toast.info(`${m.title}：${m.body}`)}
+              className="w-full px-4 py-3 flex items-start gap-3 active:bg-secondary text-left">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                m.level === "danger" ? "bg-danger/10 text-danger" :
+                m.level === "warning" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
+                m.level === "success" ? "bg-success/10 text-success" : "bg-primary/10 text-primary"
+              }`}>
+                {m.title.startsWith("AI") ? <Bot className="w-4 h-4" /> : <Bell className="w-4 h-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{m.title}</span>
+                  <span className="text-[10px] text-muted-foreground">{m.time}</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">{m.body}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 协同消息 */}
+      {cat === "collab" && (
+        <div className="divide-y divide-border bg-card">
+          {collabMsgs.map(m => (
+            <button key={m.id} onClick={() => toast.info(`${m.title}：${m.body}`)}
+              className="w-full px-4 py-3 flex items-start gap-3 active:bg-secondary text-left">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${m.urgent ? "bg-danger/10 text-danger" : "bg-primary/10 text-primary"}`}>
+                <HeartHandshake className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium flex items-center gap-1">{m.title}{m.urgent && <span className="text-[9px] px-1 rounded bg-danger/10 text-danger">紧急</span>}</span>
+                  <span className="text-[10px] text-muted-foreground">{m.time}</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">{m.body}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
