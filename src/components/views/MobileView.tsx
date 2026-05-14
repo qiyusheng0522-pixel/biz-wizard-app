@@ -133,6 +133,22 @@ function MHome({
   push, taskState, toggleTask,
 }: { push: (s: Stack) => void; taskState: Record<string, boolean>; toggleTask: (id: string) => void }) {
   const doneCount = Object.values(taskState).filter(Boolean).length;
+  // 任务来源 Tab：AI / 客户主动 / 协同 / 自建 / 节日 / 续费
+  const [taskSrc, setTaskSrc] = useState<"all" | "ai" | "client" | "team" | "self" | "holiday" | "renew">("all");
+  // 节日 + 续费类任务（追加到核心 tasks 之外，仅前端模拟）
+  const extraTasks = [
+    { id: "X-1", src: "client" as const,  customer: "陈姐",  title: "客户主动求助：失眠 3 天怎么办",   priority: "P1", due: "今日", tag: "客户主动" },
+    { id: "X-2", src: "team" as const,    customer: "王奶奶", title: "钱药师协同：化疗止吐方案确认",     priority: "P1", due: "11:00", tag: "协同任务" },
+    { id: "X-3", src: "self" as const,    customer: "李叔",  title: "自建：出差归来首次复盘",            priority: "P2", due: "本周", tag: "自建" },
+    { id: "X-4", src: "holiday" as const, customer: "周阿姨", title: "母亲节祝福 + 子女联动问候",        priority: "P2", due: "5/12", tag: "节日关怀" },
+    { id: "X-5", src: "renew" as const,   customer: "刘伯",  title: "服务包 12 天后到期 · 续费方案推送", priority: "P1", due: "本周", tag: "续费机会" },
+  ];
+  // 把核心 tasks 标记为 ai 来源（除 MDT/医师指派 → team；客户求助 → client）
+  const merged = [
+    ...tasks.map(t => ({ id: t.id, src: t.source === "医师指派" ? "team" as const : t.source === "客户求助" ? "client" as const : "ai" as const, customer: t.customer, title: t.title, priority: t.priority, due: t.due, tag: t.source })),
+    ...extraTasks,
+  ];
+  const visibleTasks = taskSrc === "all" ? merged : merged.filter(t => t.src === taskSrc);
   return (
     <div className="px-4 py-3 space-y-4">
       {/* 问候卡 */}
@@ -176,51 +192,44 @@ function MHome({
         })}
       </div>
 
-      {/* 今日关注 */}
+      {/* 今日关注 — 横滑卡片 / 可翻面 / 一键操作 */}
       <section>
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-semibold flex items-center gap-1.5 text-sm"><AlertTriangle className="w-4 h-4 text-danger" />今日关注</h2>
-          <button className="text-xs text-primary" onClick={() => toast.info("已切换至「客户」Tab 的关注列表")}>查看全部</button>
+          <span className="text-[11px] text-muted-foreground">左右滑动 · 点 ↻ 翻面看上下文</span>
         </div>
-        <div className="space-y-2">
-          {customers.filter(c => c.layer === "urgent" || c.layer === "abnormal").map(c => (
-            <div key={c.id} className="rounded-xl bg-card border border-border p-3 flex items-center gap-3">
-              <button onClick={() => push({ name: "customer", id: c.id })} className="flex items-center gap-3 flex-1 min-w-0 text-left">
-                <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-medium">{c.name[0]}</div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-sm">{c.name}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground truncate mt-0.5">{c.note}</div>
-                </div>
-              </button>
-              <button onClick={() => toast.success(`正在拨打 ${c.name} ...`)} className="p-2 rounded-full bg-primary/10 active:bg-primary/20">
-                <Phone className="w-4 h-4 text-primary" />
-              </button>
-              <button onClick={() => push({ name: "chat", id: c.id })} className="p-2 rounded-full bg-secondary active:bg-muted">
-                <MessageSquare className="w-4 h-4 text-foreground" />
-              </button>
-            </div>
-          ))}
-        </div>
+        <FocusCarousel push={push} />
       </section>
 
-      {/* 任务清单 */}
+      {/* 工作台任务清单 — 多来源 */}
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-sm">AI 任务清单</h2>
+          <h2 className="font-semibold text-sm">工作台 · 任务清单</h2>
           <span className="text-xs text-muted-foreground">已完成 {doneCount}/{tasks.length}</span>
         </div>
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          {[
+            { k: "all",     l: "全部" },
+            { k: "ai",      l: "AI 生成" },
+            { k: "client",  l: "客户主动" },
+            { k: "team",    l: "协同" },
+            { k: "self",    l: "自建" },
+            { k: "holiday", l: "节日" },
+            { k: "renew",   l: "续费到期" },
+          ].map(s => (
+            <Chip key={s.k} active={taskSrc === s.k} onClick={() => setTaskSrc(s.k as typeof taskSrc)}>{s.l}</Chip>
+          ))}
+        </div>
         <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
-          {tasks.map(t => {
+          {visibleTasks.map(t => {
             const done = taskState[t.id];
+            const isCore = tasks.some(x => x.id === t.id);
             return (
               <div key={t.id} className="px-3 py-3 flex items-center gap-2.5 active:bg-secondary/60">
-                <button onClick={(e) => { e.stopPropagation(); toggleTask(t.id); }} className="p-0.5">
+                <button onClick={(e) => { e.stopPropagation(); isCore ? toggleTask(t.id) : toast.success("任务已完成 ✓"); }} className="p-0.5">
                   {done ? <CheckCircle2 className="w-5 h-5 text-success" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
                 </button>
-                <button onClick={() => push({ name: "task", id: t.id })} className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
+                <button onClick={() => isCore ? push({ name: "task", id: t.id }) : toast.info(`${t.tag}：${t.title}`)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
                     t.priority === "P0" ? "bg-danger/10 text-danger" :
                     t.priority === "P1" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
@@ -228,15 +237,98 @@ function MHome({
                   }`}>{t.priority}</span>
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm ${done ? "line-through text-muted-foreground" : ""}`}>{t.title}</div>
-                    <div className="text-[10px] text-muted-foreground">{t.customer} · {t.due}</div>
+                    <div className="text-[10px] text-muted-foreground">{t.customer} · {t.due} · {t.tag}</div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
             );
           })}
+          {visibleTasks.length === 0 && (
+            <div className="py-8 text-center text-xs text-muted-foreground">该来源暂无任务</div>
+          )}
         </div>
       </section>
+    </div>
+  );
+}
+
+/* ---------- 今日关注 横滑可翻面卡片 ---------- */
+function FocusCarousel({ push }: { push: (s: Stack) => void }) {
+  const focus = customers.filter(c => c.layer === "urgent" || c.layer === "abnormal" || c.layer === "churnRisk");
+  const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const flip = (id: string) => setFlipped(f => ({ ...f, [id]: !f[id] }));
+  return (
+    <div className="-mx-4 px-4 flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+      {focus.map(c => {
+        const tone =
+          c.layer === "urgent" ? { bar: "bg-danger", txt: "text-danger", bg: "bg-danger/5", chip: "bg-danger/10 text-danger" } :
+          c.layer === "abnormal" ? { bar: "bg-warning", txt: "text-[oklch(0.5_0.13_75)]", bg: "bg-warning/5", chip: "bg-warning/10 text-[oklch(0.5_0.13_75)]" } :
+          { bar: "bg-muted-foreground", txt: "text-muted-foreground", bg: "bg-secondary/40", chip: "bg-secondary text-muted-foreground" };
+        const summary =
+          c.layer === "urgent"   ? `凌晨血糖 ${c.metrics.bg ?? 3.8}，需紧急回访` :
+          c.layer === "abnormal" ? `${c.metrics.bp ? "血压 " + c.metrics.bp : "情绪低落"}，建议主动关怀` :
+          `断签多日，建议温柔挽回话术`;
+        const action = c.layer === "urgent" ? "立即电话 · 5 分钟内反馈" : c.layer === "abnormal" ? "上午发起视频复测" : "推送节日话题 + 服务包权益";
+        const script = c.layer === "urgent"
+          ? `"${c.name}您好，凌晨监测到血糖偏低，您现在感觉如何？"`
+          : c.layer === "abnormal"
+            ? `"${c.name}早上好～昨天的不适今天怎么样了？"`
+            : `"${c.name}好久不见～最近身体还好吗？您的健康我一直挂在心上。"`;
+        const front = (
+          <div className={`h-full flex flex-col p-3 ${tone.bg}`}>
+            <div className="flex items-center gap-2">
+              <span className={`w-1.5 h-5 rounded-full ${tone.bar}`} />
+              <div className="w-9 h-9 rounded-full bg-card flex items-center justify-center text-sm font-medium">{c.name[0]}</div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold truncate">{c.name} <span className="text-[10px] text-muted-foreground font-normal">{c.gender}·{c.age}</span></div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded ${tone.chip}`}>{layerMeta[c.layer].label}</span>
+              </div>
+              <button onClick={() => flip(c.id)} className="p-1 rounded-md bg-card/80 active:bg-card"><RotateCw className="w-3.5 h-3.5 text-muted-foreground" /></button>
+            </div>
+            <div className="mt-2 text-xs leading-relaxed text-foreground line-clamp-2">{summary}</div>
+            <div className="mt-2 rounded-lg bg-card/80 border border-border p-2">
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary" />建议动作</div>
+              <div className="text-[11px] mt-0.5 font-medium">{action}</div>
+            </div>
+            <div className="mt-2 rounded-lg bg-card/80 border border-border p-2 flex-1">
+              <div className="text-[10px] text-muted-foreground">话术预览</div>
+              <div className="text-[11px] mt-0.5 italic text-muted-foreground line-clamp-2">{script}</div>
+            </div>
+            <div className="mt-2 grid grid-cols-4 gap-1.5">
+              <button onClick={() => toast.success(`正在拨打 ${c.name}`)} className="py-1.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Phone className="w-3.5 h-3.5" /></button>
+              <button onClick={() => toast.info("视频邀请已发送")} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><Video className="w-3.5 h-3.5" /></button>
+              <button onClick={() => toast.info("按住说话…")} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><Mic className="w-3.5 h-3.5" /></button>
+              <button onClick={() => push({ name: "customer", id: c.id })} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><FileText className="w-3.5 h-3.5" /></button>
+            </div>
+          </div>
+        );
+        const back = (
+          <div className="h-full flex flex-col p-3 bg-card">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">{c.name} · 完整上下文</div>
+              <button onClick={() => flip(c.id)} className="p-1 rounded-md bg-secondary"><RotateCw className="w-3.5 h-3.5 text-muted-foreground" /></button>
+            </div>
+            <div className="mt-2 space-y-1.5 text-[11px] text-foreground overflow-y-auto flex-1">
+              <div><span className="text-muted-foreground">病种 · </span>{c.diseases.join(" / ")}</div>
+              <div><span className="text-muted-foreground">服务包 · </span>{c.package}</div>
+              <div><span className="text-muted-foreground">最近触达 · </span>{c.lastTouch}</div>
+              <div><span className="text-muted-foreground">关键备注 · </span>{c.note}</div>
+              <div><span className="text-muted-foreground">温度 · </span><span className="text-danger font-medium">82</span> · 30 天 ↘</div>
+              <div><span className="text-muted-foreground">家庭 · </span>女儿张敏（紧急） · 妻子（已授权）</div>
+              <div><span className="text-muted-foreground">医师 · </span>赵主任 · 2 周后复查 HbA1c</div>
+            </div>
+            <button onClick={() => push({ name: "customer", id: c.id })} className="mt-2 py-2 rounded-lg bg-[image:var(--gradient-primary)] text-primary-foreground text-xs">进入完整档案 →</button>
+          </div>
+        );
+        return (
+          <div key={c.id} className="snap-start shrink-0 w-[78%]">
+            <div className="rounded-2xl border border-border overflow-hidden h-[260px] shadow-[var(--shadow-card)]">
+              {flipped[c.id] ? back : front}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
