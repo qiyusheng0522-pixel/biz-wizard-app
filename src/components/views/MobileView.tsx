@@ -9,6 +9,7 @@ import {
   TrendingUp, Award, Stethoscope, ClipboardList, Settings, LogOut, ShieldCheck, Clock,
   X, MapPin, AlertCircle, Heart, Users2, Package, Smile, BookMarked, Gift, Clipboard, Home as HomeIcon,
   RotateCw, ChevronDown, Play, CalendarDays, Flame,
+  Paperclip, CheckCheck, RotateCcw, Reply, Bot, MicOff, Volume2, PhoneOff, Hash, AtSign, UserPlus,
 } from "lucide-react";
 
 /**
@@ -29,7 +30,12 @@ type Stack =
   | { name: "scripts" }         // 话术模板库
   | { name: "mdt" }             // MDT 会诊记录
   | { name: "settings" }
-  | { name: "profile" };
+  | { name: "profile" }
+  | { name: "groupInfo"; id: string }       // 群聊信息（患者+家人+协同人员）
+  | { name: "callSummary"; id: string; kind: "phone" | "voice" | "text" } // 沟通结束后 AI 摘要
+  | { name: "messageBoard"; id: string }    // 给客户的留言
+  | { name: "contactRoster" }               // 选择医师/护士/康复师
+  | { name: "imSearch" };                   // 沟通消息检索
 
 export function MobileView() {
   const [tab, setTab] = useState<"home" | "client" | "im" | "me">("home");
