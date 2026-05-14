@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { customers, tasks, todayKpi, layerMeta, fivePersonTeam, type Task, type Customer } from "@/lib/mock-data";
+import { customers, tasks, todayKpi, layerMeta, fivePersonTeam, type Task, type Customer, type CustomerLayer } from "@/lib/mock-data";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import {
