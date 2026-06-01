@@ -1971,42 +1971,218 @@ function SearchScreen({ pop, push }: { pop: () => void; push: (s: Stack) => void
  * 新建客户
  * ============================================================ */
 function AddCustomer({ pop }: { pop: () => void }) {
-  const [form, setForm] = useState({ name: "", phone: "", age: "", gender: "女", pkg: "银卡" });
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState({
+    name: "", phone: "", age: "", gender: "女", idNo: "", address: "",
+    emergency: "", emergencyPhone: "", pkg: "银卡",
+    diseases: [] as string[], allergies: "", history: "", meds: "",
+    note: "",
+  });
+  const [files, setFiles] = useState<{ kind: string; name: string; size: string }[]>([]);
+
+  const diseaseOpts = ["糖尿病", "高血压", "冠心病", "肿瘤", "慢阻肺", "脑卒中", "肾病", "甲状腺", "失眠", "焦虑"];
+  const docTypes = [
+    { k: "病历",   icon: FileText,     hint: "门诊/住院病历首页、出院小结" },
+    { k: "化验单", icon: Activity,     hint: "血常规、生化、糖化等" },
+    { k: "入院单", icon: ClipboardList,hint: "入院记录、入院评估单" },
+    { k: "检查单", icon: Stethoscope,  hint: "影像、超声、心电、内镜等" },
+  ];
+
+  const addMock = (kind: string) => {
+    const samples: Record<string, string> = {
+      "病历": "出院小结_2026-05.pdf",
+      "化验单": "糖化血红蛋白_2026-05-20.jpg",
+      "入院单": "入院记录_2026-04-12.pdf",
+      "检查单": "胸部CT报告_2026-05-18.pdf",
+    };
+    setFiles(f => [...f, { kind, name: samples[kind] ?? `${kind}.pdf`, size: `${(Math.random()*2+0.4).toFixed(1)}MB` }]);
+    toast.success(`已上传${kind}，AI 正在结构化解析…`);
+  };
+
+  const toggleDisease = (d: string) =>
+    setForm(f => ({ ...f, diseases: f.diseases.includes(d) ? f.diseases.filter(x => x !== d) : [...f.diseases, d] }));
+
+  const submit = () => {
+    if (!form.name) return toast.error("请填写姓名");
+    if (!form.phone) return toast.error("请填写手机号");
+    toast.success(`已为 ${form.name} 建档，AI 正在合并病历/化验单生成健康档案`);
+    pop();
+  };
+
   return (
-    <div>
-      <PageHeader title="新建客户" pop={pop} />
-      <div className="p-4 space-y-3">
-        <Field label="姓名"   value={form.name}  onChange={v => setForm({ ...form, name: v })} placeholder="请输入" />
-        <Field label="手机号" value={form.phone} onChange={v => setForm({ ...form, phone: v })} placeholder="11 位手机号" />
-        <Field label="年龄"   value={form.age}   onChange={v => setForm({ ...form, age: v })}   placeholder="请输入" />
-        <div className="rounded-xl bg-card border border-border p-3">
-          <div className="text-xs text-muted-foreground mb-2">性别</div>
-          <div className="flex gap-2">
-            {["女", "男"].map(g => (
-              <button key={g} onClick={() => setForm({ ...form, gender: g })}
-                className={`flex-1 py-2 rounded-lg text-sm ${form.gender === g ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{g}</button>
-            ))}
-          </div>
+    <div className="pb-24">
+      <PageHeader title="新建客户 · 手动建档" pop={pop} />
+
+      {/* 步骤指示 */}
+      <div className="px-4 pt-3">
+        <div className="flex items-center gap-2">
+          {[
+            { n: 1, l: "基本信息" },
+            { n: 2, l: "病历资料" },
+            { n: 3, l: "健康档案" },
+            { n: 4, l: "服务包" },
+          ].map((s, i) => (
+            <div key={s.n} className="flex-1 flex items-center gap-2">
+              <button onClick={() => setStep(s.n)}
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] ${step === s.n ? "bg-primary text-primary-foreground" : step > s.n ? "bg-primary/15 text-primary" : "bg-secondary text-muted-foreground"}`}>
+                <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${step >= s.n ? "bg-primary-foreground/30" : "bg-background"}`}>{s.n}</span>
+                {s.l}
+              </button>
+              {i < 3 && <span className={`h-px flex-1 ${step > s.n ? "bg-primary/40" : "bg-border"}`} />}
+            </div>
+          ))}
         </div>
-        <div className="rounded-xl bg-card border border-border p-3">
-          <div className="text-xs text-muted-foreground mb-2">服务包</div>
-          <div className="flex gap-2">
-            {["体验包", "银卡", "金卡"].map(p => (
-              <button key={p} onClick={() => setForm({ ...form, pkg: p })}
-                className={`flex-1 py-2 rounded-lg text-sm ${form.pkg === p ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{p}</button>
-            ))}
-          </div>
-        </div>
-        <button
-          onClick={() => {
-            if (!form.name) return toast.error("请填写姓名");
-            toast.success(`已为 ${form.name} 建档`);
-            pop();
-          }}
-          className="w-full py-3.5 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground font-medium">
-          完成建档
-        </button>
       </div>
+
+      <div className="p-4 space-y-3">
+        {step === 1 && (
+          <>
+            <Field label="姓名"    value={form.name}  onChange={v => setForm({ ...form, name: v })}  placeholder="请输入真实姓名" />
+            <Field label="手机号"  value={form.phone} onChange={v => setForm({ ...form, phone: v })} placeholder="11 位手机号" />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="年龄" value={form.age} onChange={v => setForm({ ...form, age: v })} placeholder="如 68" />
+              <div className="rounded-xl bg-card border border-border p-3">
+                <div className="text-xs text-muted-foreground mb-2">性别</div>
+                <div className="flex gap-2">
+                  {["女", "男"].map(g => (
+                    <button key={g} onClick={() => setForm({ ...form, gender: g })}
+                      className={`flex-1 py-1.5 rounded-lg text-sm ${form.gender === g ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{g}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <Field label="身份证号" value={form.idNo}    onChange={v => setForm({ ...form, idNo: v })}    placeholder="选填，用于实名" />
+            <Field label="联系地址" value={form.address} onChange={v => setForm({ ...form, address: v })} placeholder="省市区 + 详细地址" />
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="紧急联系人"     value={form.emergency}      onChange={v => setForm({ ...form, emergency: v })}      placeholder="姓名/关系" />
+              <Field label="紧急联系人电话" value={form.emergencyPhone} onChange={v => setForm({ ...form, emergencyPhone: v })} placeholder="11 位手机号" />
+            </div>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <div className="rounded-xl bg-primary/8 border border-primary/20 p-3 flex items-start gap-2">
+              <Sparkles className="w-4 h-4 text-primary mt-0.5" />
+              <div className="text-[11px] text-muted-foreground leading-relaxed">
+                上传 <b className="text-foreground">病历 / 化验单 / 入院单 / 检查单</b>，AI 将自动 OCR 识别并提取关键指标（如糖化、血压、肿瘤分期），同步生成结构化健康档案。
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {docTypes.map(d => {
+                const Icon = d.icon;
+                const cnt = files.filter(f => f.kind === d.k).length;
+                return (
+                  <button key={d.k} onClick={() => addMock(d.k)}
+                    className="rounded-xl bg-card border border-dashed border-border p-3 text-left active:scale-[0.98] transition">
+                    <div className="flex items-center justify-between">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Icon className="w-4 h-4 text-primary" />
+                      </div>
+                      {cnt > 0 && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">{cnt}</span>}
+                    </div>
+                    <div className="text-sm font-medium mt-2">{d.k}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{d.hint}</div>
+                    <div className="mt-2 flex items-center gap-1 text-[10px] text-primary"><Plus className="w-3 h-3" />添加</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => toast.info("调用相机拍照…")} className="flex-1 py-2.5 rounded-xl bg-secondary text-xs flex items-center justify-center gap-1.5"><ImageIcon className="w-3.5 h-3.5" />拍照上传</button>
+              <button onClick={() => toast.info("从相册选择…")}   className="flex-1 py-2.5 rounded-xl bg-secondary text-xs flex items-center justify-center gap-1.5"><Paperclip className="w-3.5 h-3.5" />从文件</button>
+            </div>
+
+            {files.length > 0 && (
+              <div className="rounded-xl bg-card border border-border divide-y divide-border">
+                {files.map((f, i) => (
+                  <div key={i} className="p-2.5 flex items-center gap-2.5">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium truncate">{f.name}</div>
+                      <div className="text-[10px] text-muted-foreground">{f.kind} · {f.size} · <span className="text-primary">AI 已识别</span></div>
+                    </div>
+                    <button onClick={() => setFiles(arr => arr.filter((_, j) => j !== i))} className="p-1 text-muted-foreground"><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <div className="rounded-xl bg-card border border-border p-3">
+              <div className="text-xs text-muted-foreground mb-2">主要病种（可多选）</div>
+              <div className="flex flex-wrap gap-1.5">
+                {diseaseOpts.map(d => (
+                  <button key={d} onClick={() => toggleDisease(d)}
+                    className={`px-2.5 py-1 rounded-full text-[11px] border ${form.diseases.includes(d) ? "bg-primary text-primary-foreground border-primary" : "bg-secondary border-transparent"}`}>{d}</button>
+                ))}
+              </div>
+              {files.length > 0 && (
+                <div className="mt-2 text-[10px] text-primary flex items-center gap-1"><Sparkles className="w-3 h-3" />AI 已根据病历预填上述病种，请确认</div>
+              )}
+            </div>
+            <TextArea label="过敏史" value={form.allergies} onChange={v => setForm({ ...form, allergies: v })} placeholder="如：青霉素、海鲜，无则填无" />
+            <TextArea label="既往史" value={form.history}   onChange={v => setForm({ ...form, history: v })}   placeholder="既往手术、家族遗传等" />
+            <TextArea label="当前用药" value={form.meds}    onChange={v => setForm({ ...form, meds: v })}     placeholder="药品名 / 剂量 / 频次" />
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <div className="rounded-xl bg-card border border-border p-3">
+              <div className="text-xs text-muted-foreground mb-2">服务包</div>
+              <div className="grid grid-cols-3 gap-2">
+                {["体验包", "银卡", "金卡"].map(p => (
+                  <button key={p} onClick={() => setForm({ ...form, pkg: p })}
+                    className={`py-2.5 rounded-lg text-sm ${form.pkg === p ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{p}</button>
+                ))}
+              </div>
+              <div className="mt-2 text-[10px] text-muted-foreground">
+                {form.pkg === "体验包" && "14 天免费试用，含 2 次电话随访"}
+                {form.pkg === "银卡"   && "12 个月 · 月度随访 + MDT 1 次"}
+                {form.pkg === "金卡"   && "12 个月 · 周度随访 + MDT 4 次 + 24h 在线"}
+              </div>
+            </div>
+            <TextArea label="健管师备注" value={form.note} onChange={v => setForm({ ...form, note: v })} placeholder="性格、沟通偏好、家庭背景等" />
+
+            {/* 摘要 */}
+            <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
+              <div className="text-[11px] opacity-90">建档摘要</div>
+              <div className="text-sm font-medium mt-1">{form.name || "（未填姓名）"} · {form.gender} · {form.age || "?"}岁 · {form.pkg}</div>
+              <div className="text-[11px] opacity-90 mt-1">病种：{form.diseases.join("、") || "—"}</div>
+              <div className="text-[11px] opacity-90">已上传 {files.length} 份病历资料</div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* 底部操作 */}
+      <div className="fixed bottom-0 left-0 right-0 mx-auto max-w-[390px] px-4 py-3 bg-background/95 backdrop-blur border-t border-border flex gap-2">
+        {step > 1 ? (
+          <button onClick={() => setStep(s => s - 1)} className="flex-1 py-3 rounded-xl bg-secondary text-sm">上一步</button>
+        ) : (
+          <button onClick={pop} className="flex-1 py-3 rounded-xl bg-secondary text-sm">取消</button>
+        )}
+        {step < 4 ? (
+          <button onClick={() => setStep(s => s + 1)} className="flex-[1.5] py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground text-sm font-medium">下一步</button>
+        ) : (
+          <button onClick={submit} className="flex-[1.5] py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground text-sm font-medium">完成建档</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TextArea({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+  return (
+    <div className="rounded-xl bg-card border border-border p-3">
+      <div className="text-xs text-muted-foreground mb-1.5">{label}</div>
+      <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        rows={3}
+        className="w-full bg-transparent text-sm outline-none resize-none placeholder:text-muted-foreground/60" />
     </div>
   );
 }
