@@ -1971,7 +1971,6 @@ function SearchScreen({ pop, push }: { pop: () => void; push: (s: Stack) => void
  * 新建客户
  * ============================================================ */
 function AddCustomer({ pop }: { pop: () => void }) {
-function AddCustomer({ pop }: { pop: () => void }) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: "", phone: "", age: "", gender: "女", idNo: "", address: "",
