@@ -316,33 +316,11 @@ function MHome({
           <h2 className="font-semibold text-sm">工作台 · 任务清单</h2>
           <span className="text-xs text-muted-foreground">已完成 {doneCount}/{tasks.length}</span>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-          {[
-            { k: "all",     l: "全部" },
-            { k: "ai",      l: "AI 生成" },
-            { k: "client",  l: "客户主动" },
-            { k: "team",    l: "协同" },
-            { k: "self",    l: "自建" },
-            { k: "holiday", l: "节日" },
-            { k: "renew",   l: "续费到期" },
-          ].map(s => (
-            <Chip key={s.k} active={taskSrc === s.k} onClick={() => setTaskSrc(s.k as typeof taskSrc)}>{s.l}</Chip>
-          ))}
-        </div>
-        {/* 严重等级 */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-          <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">等级</span>
-          {(["all","紧急","高","中","低"] as const).map(s => (
-            <Chip key={s} active={sev === s} onClick={() => setSev(s)}>{s === "all" ? "全部" : s}</Chip>
-          ))}
-        </div>
-        {/* 用户标签 */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-          <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">客户</span>
-          {(["all","普通","VIP","VVIP","特别关注"] as const).map(s => (
-            <Chip key={s} active={tier === s} onClick={() => setTier(s)}>{s === "all" ? "全部" : s}</Chip>
-          ))}
-        </div>
+        <TaskFilterBar
+          src={taskSrc} setSrc={setTaskSrc}
+          sev={sev} setSev={setSev}
+          tier={tier} setTier={setTier}
+        />
         <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
           {visibleTasks.map(t => {
             const done = taskState[t.id];
