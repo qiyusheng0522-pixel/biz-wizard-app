@@ -523,6 +523,7 @@ function MClient({ push }: { push: (s: Stack) => void }) {
               <div className="text-[11px] text-muted-foreground truncate mt-0.5">{c.diseases.join(" / ")}</div>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
                 <span className="text-[10px] text-muted-foreground">{c.lastTouch}</span>
               </div>
             </div>
