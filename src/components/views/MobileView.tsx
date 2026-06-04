@@ -737,6 +737,60 @@ function MIM({ push }: { push: (s: Stack) => void }) {
  * Tab 4：我的
  * ============================================================ */
 function MMe({ push }: { push: (s: Stack) => void }) {
+  // 服务时间段筛选
+  const [range, setRange] = useState<"7" | "30" | "90">("30");
+  // 在管客户分层（演示数据）
+  const layerDist = [
+    { k: "活跃服务中", v: 52, c: "bg-success" },
+    { k: "新签待激活", v: 12, c: "bg-primary" },
+    { k: "续费窗口期", v: 14, c: "bg-warning" },
+    { k: "高风险/异常", v: 8,  c: "bg-danger" },
+  ];
+  const totalManage = layerDist.reduce((a, b) => a + b.v, 0);
+  // 服务周期分布
+  const cycleDist = [
+    { l: "30 天内", v: 8 },
+    { l: "1-3 月",  v: 22 },
+    { l: "3-6 月",  v: 28 },
+    { l: "6-12 月", v: 18 },
+    { l: "1 年以上", v: 10 },
+  ];
+  // 城市分布（地图替代）
+  const cityDist = [
+    { c: "上海", v: 48, x: 78, y: 40 },
+    { c: "杭州", v: 16, x: 70, y: 50 },
+    { c: "苏州", v: 12, x: 72, y: 42 },
+    { c: "南京", v: 6,  x: 64, y: 38 },
+    { c: "其他", v: 4,  x: 50, y: 60 },
+  ];
+  // 五大经营指标
+  const kpis: { l: string; v: string; tip: string; tone: "primary" | "success" | "danger" }[] = [
+    { l: "服务好评率", v: "96.4%", tone: "success", tip: "= (好评数 ÷ 已评价工单数) × 100%；统计周期内由客户主动评价的工单。" },
+    { l: "商品转化率", v: "23.8%", tone: "primary", tip: "= (通过我推荐成交的商品订单数 ÷ 我推荐的商品次数) × 100%。" },
+    { l: "服务转化率", v: "41.2%", tone: "primary", tip: "= (升级/加购/续费成功客户数 ÷ 我跟进的可销售客户数) × 100%。" },
+    { l: "健康达标率", v: "78.6%", tone: "success", tip: "= (达标客户数 ÷ 在管客户数) × 100%；达标 = 主要指标连续 3 周内目标区间。" },
+    { l: "客户投诉率", v: "0.4%",  tone: "danger",  tip: "= (有效投诉客户数 ÷ 在管客户数) × 100%；同一客户多次投诉合并计算。" },
+  ];
+  // 陪诊任务数据统计
+  const escort = {
+    month: 14, year: 86, rate: 98, hours: 56,
+    nextHospital: "瑞金医院 · 肿瘤科",
+    next: "明早 09:30 · 王奶奶 化疗复查",
+  };
+  // 收益
+  const income = {
+    month: "¥ 18,420",
+    base: "¥ 9,000",
+    perf: "¥ 6,820",
+    bonus: "¥ 2,600",
+    settle: "5/25",
+    items: [
+      { d: "5/16", t: "金卡服务奖金", v: "+ ¥ 1,200" },
+      { d: "5/14", t: "MDT 协同提成", v: "+ ¥ 360" },
+      { d: "5/12", t: "续费提成 · 李叔", v: "+ ¥ 480" },
+      { d: "5/10", t: "商品推荐返佣 · 鱼油", v: "+ ¥ 86" },
+    ],
+  };
   return (
     <div className="px-4 py-4 space-y-4">
       <button onClick={() => push({ name: "profile" })}
@@ -755,6 +809,138 @@ function MMe({ push }: { push: (s: Stack) => void }) {
           <div><div className="text-lg font-semibold">96</div><div className="text-[10px] opacity-80">绩效分</div></div>
         </div>
       </button>
+
+      {/* 服务时段筛选 */}
+      <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs">
+        {(["7","30","90"] as const).map(r => (
+          <button key={r} onClick={() => setRange(r)}
+            className={`flex-1 py-1.5 rounded-lg ${range===r?"bg-card shadow-sm font-medium":"text-muted-foreground"}`}>
+            近 {r} 天
+          </button>
+        ))}
+      </div>
+
+      {/* 我的收益 */}
+      <Section title="我的收益">
+        <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-4">
+          <div className="text-xs opacity-90">本月预估收益（{income.settle} 结算）</div>
+          <div className="text-2xl font-semibold mt-1">{income.month}</div>
+          <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+            <div className="bg-white/15 rounded-lg py-1.5"><div className="text-[10px] opacity-80">基本</div><div className="text-sm font-medium">{income.base}</div></div>
+            <div className="bg-white/15 rounded-lg py-1.5"><div className="text-[10px] opacity-80">绩效</div><div className="text-sm font-medium">{income.perf}</div></div>
+            <div className="bg-white/15 rounded-lg py-1.5"><div className="text-[10px] opacity-80">提成</div><div className="text-sm font-medium">{income.bonus}</div></div>
+          </div>
+        </div>
+        <div className="mt-3 divide-y divide-border">
+          {income.items.map((it,i)=>(
+            <div key={i} className="py-2 flex items-center text-sm">
+              <span className="text-[11px] text-muted-foreground w-12">{it.d}</span>
+              <span className="flex-1">{it.t}</span>
+              <span className="text-success font-medium">{it.v}</span>
+            </div>
+          ))}
+        </div>
+        <button onClick={()=>toast.info("打开完整收益明细")} className="w-full mt-2 py-2 rounded-lg bg-secondary text-xs">查看全部明细</button>
+      </Section>
+
+      {/* 五大经营指标 */}
+      <Section title="服务经营指标 · 近 30 天">
+        <div className="grid grid-cols-2 gap-2">
+          {kpis.map(k => (
+            <button key={k.l} onClick={() => toast.info(`${k.l} 计算口径`, { description: k.tip, duration: 5000 })}
+              className="rounded-xl bg-card border border-border p-3 text-left active:bg-secondary">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">{k.l}</span>
+                <AlertCircle className="w-3 h-3 text-muted-foreground" />
+              </div>
+              <div className={`text-xl font-semibold mt-1 ${
+                k.tone === "success" ? "text-success" : k.tone === "danger" ? "text-danger" : "text-primary"
+              }`}>{k.v}</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{k.tip}</div>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      {/* 在管患者服务情况 */}
+      <Section title={`在管患者 · 共 ${totalManage} 位`}>
+        {/* 分层 */}
+        <div className="space-y-2">
+          {layerDist.map(l => (
+            <div key={l.k}>
+              <div className="flex justify-between text-xs mb-1"><span>{l.k}</span><span className="text-muted-foreground">{l.v} 位</span></div>
+              <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                <div className={`h-full ${l.c}`} style={{ width: `${(l.v/totalManage)*100}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* 服务周期范围 */}
+        <div className="mt-4">
+          <div className="text-[11px] text-muted-foreground mb-2">服务周期分布</div>
+          <div className="flex items-end h-20 gap-1.5">
+            {cycleDist.map(c => (
+              <div key={c.l} className="flex-1 flex flex-col items-center gap-1">
+                <div className="w-full rounded-t bg-[image:var(--gradient-primary)]" style={{ height: `${(c.v/Math.max(...cycleDist.map(x=>x.v)))*100}%` }} />
+                <span className="text-[9px] text-muted-foreground text-center leading-tight">{c.l}</span>
+                <span className="text-[10px] font-medium">{c.v}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* 用户阶段 */}
+        <div className="mt-4">
+          <div className="text-[11px] text-muted-foreground mb-2">客户阶段</div>
+          <div className="flex items-center gap-1">
+            {[
+              { l: "导入期", v: 10, c: "bg-primary/40" },
+              { l: "成长期", v: 22, c: "bg-primary/60" },
+              { l: "成熟期", v: 38, c: "bg-primary" },
+              { l: "维护期", v: 12, c: "bg-success" },
+              { l: "流失期", v: 4,  c: "bg-danger" },
+            ].map(s => (
+              <div key={s.l} className="flex-1">
+                <div className={`h-6 rounded ${s.c} flex items-center justify-center text-[10px] text-white font-medium`}>{s.v}</div>
+                <div className="text-[9px] text-center text-muted-foreground mt-1">{s.l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* 用户地图（示意） */}
+        <div className="mt-4">
+          <div className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1"><MapPin className="w-3 h-3" />客户地理分布</div>
+          <div className="relative w-full rounded-xl bg-secondary/50 overflow-hidden" style={{ height: 140 }}>
+            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full opacity-30">
+              <path d="M30,30 Q50,20 75,30 L85,50 Q70,70 50,75 Q30,80 20,60 Z" fill="oklch(0.85 0.04 200)" stroke="oklch(0.6 0.1 200)" strokeWidth="0.5" />
+            </svg>
+            {cityDist.map(c => (
+              <button key={c.c} onClick={()=>toast.info(`${c.c} · ${c.v} 位在管客户`)}
+                className="absolute -translate-x-1/2 -translate-y-1/2 group"
+                style={{ left: `${c.x}%`, top: `${c.y}%` }}>
+                <span className="block rounded-full bg-primary/80 border-2 border-card shadow"
+                  style={{ width: 8 + c.v/3, height: 8 + c.v/3 }} />
+                <span className="text-[9px] mt-0.5 text-foreground whitespace-nowrap font-medium">{c.c} {c.v}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </Section>
+
+      {/* 陪诊数据 */}
+      <Section title="陪诊服务统计">
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold">{escort.month}</div><div className="text-[10px] text-muted-foreground">本月单</div></div>
+          <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold">{escort.year}</div><div className="text-[10px] text-muted-foreground">年度单</div></div>
+          <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold text-success">{escort.rate}%</div><div className="text-[10px] text-muted-foreground">准点率</div></div>
+          <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold">{escort.hours}</div><div className="text-[10px] text-muted-foreground">服务小时</div></div>
+        </div>
+        <div className="mt-3 rounded-lg bg-warning/5 border border-warning/30 p-3">
+          <div className="text-[10px] text-[oklch(0.5_0.13_75)] flex items-center gap-1"><Stethoscope className="w-3 h-3" />下一次陪诊</div>
+          <div className="text-sm font-medium mt-1">{escort.next}</div>
+          <div className="text-[11px] text-muted-foreground mt-0.5">{escort.nextHospital}</div>
+        </div>
+        <div className="mt-2 text-[11px] text-muted-foreground">常去医院 TOP3：瑞金 32% · 中山 21% · 华山 14%</div>
+      </Section>
 
       <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
         {[
