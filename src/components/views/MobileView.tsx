@@ -1681,27 +1681,36 @@ function ReportTab() {
     { d: "2026/03", t: "MDT 会诊纪要 #028", tags: ["MDT"],       status: "已读" },
     { d: "2026/02", t: "年度体检解读",  tags: ["体检"],           status: "已读" },
   ];
+  // 按类型分组（手风琴每一组一个分类）
+  const groups: { k: string; items: typeof reports }[] = [
+    { k: "月度报告",   items: reports.filter(r => r.t.includes("月报")) },
+    { k: "季度/年度", items: reports.filter(r => r.t.includes("季度") || r.t.includes("年度")) },
+    { k: "MDT / 专项", items: reports.filter(r => r.tags.includes("MDT")) },
+  ];
   return (
-    <>
-      <Section title="健康报告">
-        <div className="space-y-2">
-          {reports.map((r, i) => (
-            <button key={i} onClick={() => toast.info(`已打开 ${r.t}`)}
-              className="w-full rounded-xl border border-border p-3 flex items-center gap-3 active:bg-secondary text-left">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileText className="w-4 h-4 text-primary" /></div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium flex items-center gap-1.5">
-                  {r.t}
-                  {r.status === "新" && <span className="text-[10px] px-1.5 py-0 rounded bg-danger/10 text-danger">NEW</span>}
+    <div className="space-y-2.5">
+      {groups.map((g, gi) => (
+        <AccordionSection key={g.k} title={g.k} count={g.items.length} defaultOpen={gi === 0}>
+          <div className="space-y-2">
+            {g.items.map((r, i) => (
+              <button key={i} onClick={() => toast.info(`已打开 ${r.t}`)}
+                className="w-full rounded-xl border border-border p-3 flex items-center gap-3 active:bg-secondary text-left">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileText className="w-4 h-4 text-primary" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    {r.t}
+                    {r.status === "新" && <span className="text-[10px] px-1.5 py-0 rounded bg-danger/10 text-danger">NEW</span>}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">{r.d} · {r.tags.join(" / ")}</div>
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{r.d} · {r.tags.join(" / ")}</div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-      </Section>
-    </>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            ))}
+            {g.items.length === 0 && <div className="text-xs text-muted-foreground py-2 text-center">该分类暂无报告</div>}
+          </div>
+        </AccordionSection>
+      ))}
+    </div>
   );
 }
 
@@ -1714,8 +1723,8 @@ function InquiryTab() {
     { d: "4/15", who: "赵主任",           topic: "图文问诊", body: "上传眼底照片 → 排查糖网。建议眼科专科就诊。" },
   ];
   return (
-    <>
-      <Section title="问诊与医嘱">
+    <div className="space-y-2.5">
+      <AccordionSection title="问诊与医嘱" count={list.length} defaultOpen>
         <div className="space-y-2">
           {list.map((r, i) => (
             <div key={i} className="rounded-xl border border-border p-3">
@@ -1729,15 +1738,15 @@ function InquiryTab() {
             </div>
           ))}
         </div>
-      </Section>
-      <Section title="发起新问诊">
+      </AccordionSection>
+      <AccordionSection title="发起新问诊">
         <div className="grid grid-cols-3 gap-2">
           <ActionTile icon={MessageSquare} label="图文问诊" onClick={() => toast.success("已发起图文问诊")} />
           <ActionTile icon={Video}         label="视频问诊" onClick={() => toast.success("视频问诊已预约")} />
           <ActionTile icon={Stethoscope}   label="MDT 申请" onClick={() => toast.success("MDT 申请已提交")} />
         </div>
-      </Section>
-    </>
+      </AccordionSection>
+    </div>
   );
 }
 
