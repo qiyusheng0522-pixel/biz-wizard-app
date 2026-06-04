@@ -29,6 +29,30 @@ const tierColor = (t: string) =>
   t === "特别关注" ? "bg-danger/10 text-danger border-danger/30" :
   "bg-secondary text-muted-foreground border-border";
 
+// 客户来源（鼓e佳 / 骨安 / 院端转介）
+const SOURCE_MAP: Record<string, "鼓e佳" | "骨安" | "院端转介"> = {
+  "C001": "骨安",
+  "C002": "鼓e佳",
+  "C003": "鼓e佳",
+  "C004": "院端转介",
+  "C005": "骨安",
+  "C006": "鼓e佳",
+};
+const sourceOf = (id: string) => SOURCE_MAP[id] ?? "鼓e佳";
+const sourceColor = (s: string) =>
+  s === "鼓e佳" ? "bg-primary/10 text-primary border-primary/30" :
+  s === "骨安"  ? "bg-success/10 text-success border-success/30" :
+                  "bg-secondary text-muted-foreground border-border";
+
+// 风险等级（由 layer 推导：紧急→高风险，异常→中风险，离网→中风险，其他→低风险）
+type RiskLevel = "高风险" | "中风险" | "低风险";
+const riskOf = (layer: CustomerLayer): RiskLevel =>
+  layer === "urgent" ? "高风险" : (layer === "abnormal" || layer === "churnRisk") ? "中风险" : "低风险";
+const riskColor = (r: RiskLevel) =>
+  r === "高风险" ? "bg-danger/10 text-danger border-danger/30" :
+  r === "中风险" ? "bg-warning/10 text-[oklch(0.5_0.13_75)] border-warning/30" :
+                  "bg-success/10 text-success border-success/30";
+
 // 严重等级映射：P0=紧急、P1=高、P2=中、P3=低
 // "紧急" 仅用于数据较大波动；"特别关注"客户的事项至少为"高"
 type Severity = "紧急" | "高" | "中" | "低";
