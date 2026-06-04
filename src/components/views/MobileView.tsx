@@ -297,25 +297,39 @@ function MHome({
             <Chip key={s.k} active={taskSrc === s.k} onClick={() => setTaskSrc(s.k as typeof taskSrc)}>{s.l}</Chip>
           ))}
         </div>
+        {/* 严重等级 */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">等级</span>
+          {(["all","紧急","高","中","低"] as const).map(s => (
+            <Chip key={s} active={sev === s} onClick={() => setSev(s)}>{s === "all" ? "全部" : s}</Chip>
+          ))}
+        </div>
+        {/* 用户标签 */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">客户</span>
+          {(["all","普通","VIP","VVIP","特别关注"] as const).map(s => (
+            <Chip key={s} active={tier === s} onClick={() => setTier(s)}>{s === "all" ? "全部" : s}</Chip>
+          ))}
+        </div>
         <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
           {visibleTasks.map(t => {
             const done = taskState[t.id];
             const isCore = tasks.some(x => x.id === t.id);
+            const s = severityOf(t);
+            const cu = findCust(t.customer);
+            const tt = cu ? tierOf(cu.id) : "普通";
             return (
               <div key={t.id} className="px-3 py-3 flex items-center gap-2.5 active:bg-secondary/60">
                 <button onClick={(e) => { e.stopPropagation(); isCore ? toggleTask(t.id) : toast.success("任务已完成 ✓"); }} className="p-0.5">
                   {done ? <CheckCircle2 className="w-5 h-5 text-success" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
                 </button>
                 <button onClick={() => isCore ? push({ name: "task", id: t.id }) : toast.info(`${t.tag}：${t.title}`)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    t.priority === "P0" ? "bg-danger/10 text-danger" :
-                    t.priority === "P1" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
-                    "bg-muted text-muted-foreground"
-                  }`}>{t.priority}</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sevTone(s)}`}>{s}</span>
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm ${done ? "line-through text-muted-foreground" : ""}`}>{t.title}</div>
                     <div className="text-[10px] text-muted-foreground">{t.customer} · {t.due} · {t.tag}</div>
                   </div>
+                  {tt !== "普通" && <span className={`text-[9px] px-1.5 py-0.5 rounded border ${tierColor(tt)}`}>{tt}</span>}
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
