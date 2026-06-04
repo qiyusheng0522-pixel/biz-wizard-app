@@ -553,6 +553,30 @@ function MClient({ push, preset, onPresetApplied }: {
         <Chip active={filter === "new"} onClick={() => setFilter("new")}>新入 1</Chip>
         <Chip active={filter === "churnRisk"} onClick={() => setFilter("churnRisk")}>离网倾向 3</Chip>
       </div>
+      {/* 客户等级 */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">等级</span>
+        {(["all","普通","VIP","VVIP","特别关注"] as const).map(s => (
+          <Chip key={s} active={tierF === s} onClick={() => setTierF(s)}>{s === "all" ? "全部" : s}</Chip>
+        ))}
+      </div>
+      {/* 风险等级 */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">风险</span>
+        {(["all","高风险","中风险","低风险"] as const).map(s => (
+          <Chip key={s} active={riskF === s} onClick={() => setRiskF(s)}>{s === "all" ? "全部" : s}</Chip>
+        ))}
+      </div>
+      {/* 客户来源 */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">来源</span>
+        {(["all","鼓e佳","骨安","院端转介"] as const).map(s => (
+          <Chip key={s} active={srcF === s} onClick={() => setSrcF(s)}>{s === "all" ? "全部" : s}</Chip>
+        ))}
+        <span className="text-[10px] text-muted-foreground shrink-0 self-center ml-1">
+          鼓e佳 = 蜻蜓自有 App · 骨安 = 骨科服务包 · 院端转介 = 合作医院导流
+        </span>
+      </div>
       {advCount > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] text-muted-foreground">已筛选：</span>
@@ -577,6 +601,8 @@ function MClient({ push, preset, onPresetApplied }: {
               <div className="flex items-center gap-1.5 mt-1">
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${riskColor(riskOf(c.layer))}`}>{riskOf(c.layer)}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${sourceColor(sourceOf(c.id))}`}>{sourceOf(c.id)}</span>
                 <span className="text-[10px] text-muted-foreground">{c.lastTouch}</span>
               </div>
             </div>
