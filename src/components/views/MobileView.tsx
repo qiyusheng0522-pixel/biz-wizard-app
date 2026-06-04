@@ -2820,7 +2820,7 @@ function TaskFilterBar({
   src, setSrc, sev, setSev, tier, setTier,
 }: {
   src: "all" | "ai" | "client" | "team" | "self" | "holiday" | "renew";
-  setSrc: (v: TaskFilterBar.SrcT) => void;
+  setSrc: (v: "all" | "ai" | "client" | "team" | "self" | "holiday" | "renew") => void;
   sev: "all" | Severity;
   setSev: (v: "all" | Severity) => void;
   tier: "all" | "普通" | "VIP" | "VVIP" | "特别关注";
@@ -2879,11 +2879,6 @@ function TaskFilterBar({
       )}
     </div>
   );
-}
-// 仅用于类型导入命名（保持声明合法）
-// eslint-disable-next-line @typescript-eslint/no-namespace
-namespace TaskFilterBar {
-  export type SrcT = "all" | "ai" | "client" | "team" | "self" | "holiday" | "renew";
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
