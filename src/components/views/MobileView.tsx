@@ -12,6 +12,50 @@ import {
   Paperclip, CheckCheck, RotateCcw, Reply, Bot, MicOff, Volume2, PhoneOff, Hash, AtSign, UserPlus,
 } from "lucide-react";
 
+/* ---------- 工具：等级/标签/虚拟号 ---------- */
+// 客户分层标签（普通 / VIP / VVIP / 特别关注）
+const TIER_MAP: Record<string, "普通" | "VIP" | "VVIP" | "特别关注"> = {
+  "C001": "特别关注", // 张老爷子（urgent）
+  "C002": "VVIP",     // 王奶奶
+  "C003": "VIP",
+  "C004": "普通",
+  "C005": "VIP",
+  "C006": "特别关注", // 周阿姨
+};
+const tierOf = (id: string) => TIER_MAP[id] ?? "普通";
+const tierColor = (t: string) =>
+  t === "VVIP" ? "bg-[oklch(0.55_0.18_300)]/10 text-[oklch(0.45_0.18_300)] border-[oklch(0.55_0.18_300)]/30" :
+  t === "VIP"  ? "bg-warning/10 text-[oklch(0.45_0.13_75)] border-warning/30" :
+  t === "特别关注" ? "bg-danger/10 text-danger border-danger/30" :
+  "bg-secondary text-muted-foreground border-border";
+
+// 严重等级映射：P0=紧急、P1=高、P2=中、P3=低
+// "紧急" 仅用于数据较大波动；"特别关注"客户的事项至少为"高"
+type Severity = "紧急" | "高" | "中" | "低";
+const sevFromPrio = (p: string): Severity =>
+  p === "P0" ? "紧急" : p === "P1" ? "高" : p === "P2" ? "中" : "低";
+const sevTone = (s: Severity) =>
+  s === "紧急" ? "bg-danger/10 text-danger border-danger/30" :
+  s === "高"   ? "bg-warning/10 text-[oklch(0.5_0.13_75)] border-warning/30" :
+  s === "中"   ? "bg-primary/10 text-primary border-primary/30" :
+                 "bg-secondary text-muted-foreground border-border";
+
+// 虚拟号外呼提示（统一封装）
+const placeCall = (name: string) => {
+  toast.success(`正在通过虚拟号外呼 ${name}`, {
+    description: "本次通话采用平台虚拟号，双方真实号码均不外露 · 通话全程加密录音",
+    duration: 3500,
+  });
+};
+
+// 紧急告警系统自动干预（模拟）
+const autoIntervene = (name: string) => {
+  toast.warning(`⚡ 已触发系统自动干预 · ${name}`, {
+    description: "1) 推送应急话术至患者群 2) 通知紧急联系人 3) 同步责任医师 4) 排队上门护士",
+    duration: 4500,
+  });
+};
+
 /**
  * 移动端 — 健管师手机 App
  * 内置堆栈式路由（state-based stack），点击任何条目都会推入详情页
