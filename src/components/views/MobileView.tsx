@@ -2812,6 +2812,80 @@ function Chip({ children, active, onClick }: { children: React.ReactNode; active
   );
 }
 
+/**
+ * 任务清单筛选条 — 单行精简版
+ * 只展示"来源"快捷标签 + 一个"筛选"入口（弹出严重等级 / 客户标签）
+ */
+function TaskFilterBar({
+  src, setSrc, sev, setSev, tier, setTier,
+}: {
+  src: "all" | "ai" | "client" | "team" | "self" | "holiday" | "renew";
+  setSrc: (v: TaskFilterBar.SrcT) => void;
+  sev: "all" | Severity;
+  setSev: (v: "all" | Severity) => void;
+  tier: "all" | "普通" | "VIP" | "VVIP" | "特别关注";
+  setTier: (v: "all" | "普通" | "VIP" | "VVIP" | "特别关注") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const srcs = [
+    { k: "all",     l: "全部" },
+    { k: "ai",      l: "AI 生成" },
+    { k: "client",  l: "客户主动" },
+    { k: "team",    l: "协同" },
+    { k: "self",    l: "自建" },
+    { k: "holiday", l: "节日" },
+    { k: "renew",   l: "续费到期" },
+  ] as const;
+  const advCount = (sev !== "all" ? 1 : 0) + (tier !== "all" ? 1 : 0);
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <div className="flex-1 flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
+          {srcs.map(s => (
+            <Chip key={s.k} active={src === s.k} onClick={() => setSrc(s.k as typeof src)}>{s.l}</Chip>
+          ))}
+        </div>
+        <button onClick={() => setOpen(o => !o)}
+          className={`shrink-0 relative px-2.5 py-1.5 rounded-full text-xs flex items-center gap-1 border ${
+            open || advCount > 0 ? "bg-primary/10 text-primary border-primary/30" : "bg-secondary text-muted-foreground border-transparent"
+          }`}>
+          <Filter className="w-3.5 h-3.5" />筛选
+          {advCount > 0 && <span className="text-[9px] px-1 rounded-full bg-primary text-primary-foreground">{advCount}</span>}
+        </button>
+      </div>
+      {open && (
+        <div className="rounded-xl bg-secondary/40 border border-border p-2.5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div>
+            <div className="text-[10px] text-muted-foreground mb-1.5">严重等级（仅数据较大波动展示「紧急」）</div>
+            <div className="flex gap-1.5 flex-wrap">
+              {(["all","紧急","高","中","低"] as const).map(s => (
+                <Chip key={s} active={sev === s} onClick={() => setSev(s)}>{s === "all" ? "全部" : s}</Chip>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground mb-1.5">客户等级（特别关注客户的事项至少为"高"）</div>
+            <div className="flex gap-1.5 flex-wrap">
+              {(["all","普通","VIP","VVIP","特别关注"] as const).map(s => (
+                <Chip key={s} active={tier === s} onClick={() => setTier(s)}>{s === "all" ? "全部" : s}</Chip>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => { setSev("all"); setTier("all"); }} className="text-[11px] text-muted-foreground">重置</button>
+            <button onClick={() => setOpen(false)} className="text-[11px] text-primary font-medium">完成</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// 仅用于类型导入命名（保持声明合法）
+// eslint-disable-next-line @typescript-eslint/no-namespace
+namespace TaskFilterBar {
+  export type SrcT = "all" | "ai" | "client" | "team" | "self" | "holiday" | "renew";
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-card border border-border p-4">
