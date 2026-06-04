@@ -348,6 +348,18 @@ function MHome({
 function FocusCarousel({ push }: { push: (s: Stack) => void }) {
   const focus = customers.filter(c => c.layer === "urgent" || c.layer === "abnormal" || c.layer === "churnRisk");
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  const [intervened, setIntervened] = useState<Record<string, boolean>>({});
+  // 紧急客户：进入页面后自动触发系统干预（仅一次）
+  if (typeof window !== "undefined") {
+    focus.filter(c => c.layer === "urgent").forEach(c => {
+      if (!intervened[c.id]) {
+        setTimeout(() => {
+          autoIntervene(c.name);
+          setIntervened(s => ({ ...s, [c.id]: true }));
+        }, 600);
+      }
+    });
+  }
   const flip = (id: string) => setFlipped(f => ({ ...f, [id]: !f[id] }));
   return (
     <div className="-mx-4 px-4 flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
