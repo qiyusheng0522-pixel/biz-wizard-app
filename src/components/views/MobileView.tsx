@@ -2397,7 +2397,7 @@ function TaskStats({ pop }: { pop: () => void }) {
 /* ============================================================
  * 话术模板库
  * ============================================================ */
-function ScriptLibrary({ pop }: { pop: () => void }) {
+function ScriptLibrary({ pop, push }: { pop: () => void; push?: (s: Stack) => void }) {
   const cats = ["全部", "异常处置", "主动关怀", "复诊提醒", "用药提醒", "挽回话术"];
   const [cat, setCat] = useState(0);
   const scripts = [
@@ -2411,7 +2411,7 @@ function ScriptLibrary({ pop }: { pop: () => void }) {
   return (
     <div>
       <PageHeader title="话术模板库" pop={pop}
-        right={<button onClick={() => toast.success("已新建草稿")} className="p-1.5"><Plus className="w-5 h-5" /></button>} />
+        right={<button onClick={() => push ? push({ name: "newScript" }) : toast.info("已打开新建")} className="p-1.5"><Plus className="w-5 h-5" /></button>} />
       <div className="px-4 pt-3">
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
           {cats.map((c, i) => (
