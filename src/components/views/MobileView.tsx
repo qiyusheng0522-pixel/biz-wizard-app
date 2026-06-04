@@ -203,6 +203,7 @@ function MHome({
     { id: "X-3", src: "self" as const,    customer: "李叔",  title: "自建：出差归来首次复盘",            priority: "P2", due: "本周", tag: "自建" },
     { id: "X-4", src: "holiday" as const, customer: "周阿姨", title: "母亲节祝福 + 子女联动问候",        priority: "P2", due: "5/12", tag: "节日关怀" },
     { id: "X-5", src: "renew" as const,   customer: "刘伯",  title: "服务包 12 天后到期 · 续费方案推送", priority: "P1", due: "本周", tag: "续费机会" },
+    { id: "X-6", src: "self" as const,    customer: "王奶奶", title: "陪诊：瑞金医院肿瘤科 · 9:30 集合 · 化疗复查", priority: "P0", due: "明早 09:30", tag: "陪诊任务" },
   ];
   // 把核心 tasks 标记为 ai 来源（除 MDT/医师指派 → team；客户求助 → client）
   const merged = [
