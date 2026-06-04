@@ -870,7 +870,7 @@ function TaskDetail({
  * ============================================================ */
 function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
   const c = customers.find(x => x.id === id) as Customer;
-  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "report" | "inquiry" | "med">("basic");
+  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med">("basic");
   // 进入患者详情先弹窗展示一段简介
   const [showIntro, setShowIntro] = useState(true);
   const [trendRange, setTrendRange] = useState<"30" | "90" | "custom">("30");
@@ -933,6 +933,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             { id: "history", l: "沟通" },
             { id: "trend",   l: "数据" },
             { id: "family",  l: "家庭" },
+            { id: "station", l: "驿站" },
             { id: "report",  l: "报告" },
             { id: "inquiry", l: "问诊" },
             { id: "med",     l: "用药" },
@@ -1107,6 +1108,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
         {tab === "history" && <CommunicationTimeline />}
 
         {tab === "family" && <FamilyView selfName={c.name} selfAge={c.age} />}
+        {tab === "station" && <StationTab />}
 
         {tab === "report" && <ReportTab />}
         {tab === "inquiry" && <InquiryTab />}
