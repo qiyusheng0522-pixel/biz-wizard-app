@@ -1013,7 +1013,7 @@ function MMe({ push, goClient }: {
               <path d="M30,30 Q50,20 75,30 L85,50 Q70,70 50,75 Q30,80 20,60 Z" fill="oklch(0.85 0.04 200)" stroke="oklch(0.6 0.1 200)" strokeWidth="0.5" />
             </svg>
             {cityDist.map(c => (
-              <button key={c.c} onClick={()=>toast.info(`${c.c} · ${c.v} 位在管客户`)}
+              <button key={c.c} onClick={() => goClient({ toast: `${c.c} · ${c.v} 位在管客户` })}
                 className="absolute -translate-x-1/2 -translate-y-1/2 group"
                 style={{ left: `${c.x}%`, top: `${c.y}%` }}>
                 <span className="block rounded-full bg-primary/80 border-2 border-card shadow"
