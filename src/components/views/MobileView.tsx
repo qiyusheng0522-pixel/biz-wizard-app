@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { customers, tasks, todayKpi, layerMeta, fivePersonTeam, type Task, type Customer, type CustomerLayer } from "@/lib/mock-data";
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
@@ -11,6 +11,50 @@ import {
   RotateCw, ChevronDown, Play, CalendarDays, Flame,
   Paperclip, CheckCheck, RotateCcw, Reply, Bot, MicOff, Volume2, PhoneOff, Hash, AtSign, UserPlus,
 } from "lucide-react";
+
+/* ---------- 工具：等级/标签/虚拟号 ---------- */
+// 客户分层标签（普通 / VIP / VVIP / 特别关注）
+const TIER_MAP: Record<string, "普通" | "VIP" | "VVIP" | "特别关注"> = {
+  "C001": "特别关注", // 张老爷子（urgent）
+  "C002": "VVIP",     // 王奶奶
+  "C003": "VIP",
+  "C004": "普通",
+  "C005": "VIP",
+  "C006": "特别关注", // 周阿姨
+};
+const tierOf = (id: string) => TIER_MAP[id] ?? "普通";
+const tierColor = (t: string) =>
+  t === "VVIP" ? "bg-[oklch(0.55_0.18_300)]/10 text-[oklch(0.45_0.18_300)] border-[oklch(0.55_0.18_300)]/30" :
+  t === "VIP"  ? "bg-warning/10 text-[oklch(0.45_0.13_75)] border-warning/30" :
+  t === "特别关注" ? "bg-danger/10 text-danger border-danger/30" :
+  "bg-secondary text-muted-foreground border-border";
+
+// 严重等级映射：P0=紧急、P1=高、P2=中、P3=低
+// "紧急" 仅用于数据较大波动；"特别关注"客户的事项至少为"高"
+type Severity = "紧急" | "高" | "中" | "低";
+const sevFromPrio = (p: string): Severity =>
+  p === "P0" ? "紧急" : p === "P1" ? "高" : p === "P2" ? "中" : "低";
+const sevTone = (s: Severity) =>
+  s === "紧急" ? "bg-danger/10 text-danger border-danger/30" :
+  s === "高"   ? "bg-warning/10 text-[oklch(0.5_0.13_75)] border-warning/30" :
+  s === "中"   ? "bg-primary/10 text-primary border-primary/30" :
+                 "bg-secondary text-muted-foreground border-border";
+
+// 虚拟号外呼提示（统一封装）
+const placeCall = (name: string) => {
+  toast.success(`正在通过虚拟号外呼 ${name}`, {
+    description: "本次通话采用平台虚拟号，双方真实号码均不外露 · 通话全程加密录音",
+    duration: 3500,
+  });
+};
+
+// 紧急告警系统自动干预（模拟）
+const autoIntervene = (name: string) => {
+  toast.warning(`⚡ 已触发系统自动干预 · ${name}`, {
+    description: "1) 推送应急话术至患者群 2) 通知紧急联系人 3) 同步责任医师 4) 排队上门护士",
+    duration: 4500,
+  });
+};
 
 /**
  * 移动端 — 健管师手机 App
@@ -28,6 +72,7 @@ type Stack =
   | { name: "care" }            // 我的关怀效果
   | { name: "stats" }           // 我的任务统计
   | { name: "scripts" }         // 话术模板库
+  | { name: "newScript" }       // 新建话术
   | { name: "mdt" }             // MDT 会诊记录
   | { name: "settings" }
   | { name: "profile" }
@@ -85,7 +130,8 @@ export function MobileView() {
         {top.name === "addCustomer"   && <AddCustomer pop={pop} />}
         {top.name === "care"          && <CareEffect pop={pop} />}
         {top.name === "stats"         && <TaskStats pop={pop} />}
-        {top.name === "scripts"       && <ScriptLibrary pop={pop} />}
+        {top.name === "scripts"       && <ScriptLibrary pop={pop} push={push} />}
+        {top.name === "newScript"     && <NewScript pop={pop} />}
         {top.name === "mdt"           && <MdtRecords pop={pop} />}
         {top.name === "settings"      && <SettingsScreen pop={pop} />}
         {top.name === "profile"       && <ProfileEdit pop={pop} />}
@@ -146,6 +192,10 @@ function MHome({
   const doneCount = Object.values(taskState).filter(Boolean).length;
   // 任务来源 Tab：AI / 客户主动 / 协同 / 自建 / 节日 / 续费
   const [taskSrc, setTaskSrc] = useState<"all" | "ai" | "client" | "team" | "self" | "holiday" | "renew">("all");
+  // 严重等级筛选
+  const [sev, setSev] = useState<"all" | Severity>("all");
+  // 用户标签筛选
+  const [tier, setTier] = useState<"all" | "普通" | "VIP" | "VVIP" | "特别关注">("all");
   // 节日 + 续费类任务（追加到核心 tasks 之外，仅前端模拟）
   const extraTasks = [
     { id: "X-1", src: "client" as const,  customer: "陈姐",  title: "客户主动求助：失眠 3 天怎么办",   priority: "P1", due: "今日", tag: "客户主动" },
@@ -159,7 +209,23 @@ function MHome({
     ...tasks.map(t => ({ id: t.id, src: t.source === "医师指派" ? "team" as const : t.source === "客户求助" ? "client" as const : "ai" as const, customer: t.customer, title: t.title, priority: t.priority, due: t.due, tag: t.source })),
     ...extraTasks,
   ];
-  const visibleTasks = taskSrc === "all" ? merged : merged.filter(t => t.src === taskSrc);
+  // 客户名 → 客户对象
+  const findCust = (name: string) => customers.find(c => c.name === name);
+  // 严重等级（特别关注客户：所有事项至少为"高"）
+  const severityOf = (t: { customer: string; priority: string }): Severity => {
+    const base = sevFromPrio(t.priority);
+    const cu = findCust(t.customer);
+    if (cu && tierOf(cu.id) === "特别关注" && (base === "中" || base === "低")) return "高";
+    return base;
+  };
+  const visibleTasks = merged
+    .filter(t => taskSrc === "all" || t.src === taskSrc)
+    .filter(t => sev === "all" || severityOf(t) === sev)
+    .filter(t => {
+      if (tier === "all") return true;
+      const cu = findCust(t.customer);
+      return cu ? tierOf(cu.id) === tier : false;
+    });
   return (
     <div className="px-4 py-3 space-y-4">
       {/* 问候卡 */}
@@ -231,25 +297,39 @@ function MHome({
             <Chip key={s.k} active={taskSrc === s.k} onClick={() => setTaskSrc(s.k as typeof taskSrc)}>{s.l}</Chip>
           ))}
         </div>
+        {/* 严重等级 */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">等级</span>
+          {(["all","紧急","高","中","低"] as const).map(s => (
+            <Chip key={s} active={sev === s} onClick={() => setSev(s)}>{s === "all" ? "全部" : s}</Chip>
+          ))}
+        </div>
+        {/* 用户标签 */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
+          <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">客户</span>
+          {(["all","普通","VIP","VVIP","特别关注"] as const).map(s => (
+            <Chip key={s} active={tier === s} onClick={() => setTier(s)}>{s === "all" ? "全部" : s}</Chip>
+          ))}
+        </div>
         <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
           {visibleTasks.map(t => {
             const done = taskState[t.id];
             const isCore = tasks.some(x => x.id === t.id);
+            const s = severityOf(t);
+            const cu = findCust(t.customer);
+            const tt = cu ? tierOf(cu.id) : "普通";
             return (
               <div key={t.id} className="px-3 py-3 flex items-center gap-2.5 active:bg-secondary/60">
                 <button onClick={(e) => { e.stopPropagation(); isCore ? toggleTask(t.id) : toast.success("任务已完成 ✓"); }} className="p-0.5">
                   {done ? <CheckCircle2 className="w-5 h-5 text-success" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
                 </button>
                 <button onClick={() => isCore ? push({ name: "task", id: t.id }) : toast.info(`${t.tag}：${t.title}`)} className="flex items-center gap-2.5 flex-1 min-w-0 text-left">
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    t.priority === "P0" ? "bg-danger/10 text-danger" :
-                    t.priority === "P1" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
-                    "bg-muted text-muted-foreground"
-                  }`}>{t.priority}</span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sevTone(s)}`}>{s}</span>
                   <div className="flex-1 min-w-0">
                     <div className={`text-sm ${done ? "line-through text-muted-foreground" : ""}`}>{t.title}</div>
                     <div className="text-[10px] text-muted-foreground">{t.customer} · {t.due} · {t.tag}</div>
                   </div>
+                  {tt !== "普通" && <span className={`text-[9px] px-1.5 py-0.5 rounded border ${tierColor(tt)}`}>{tt}</span>}
                   <ChevronRight className="w-4 h-4 text-muted-foreground" />
                 </button>
               </div>
@@ -268,6 +348,13 @@ function MHome({
 function FocusCarousel({ push }: { push: (s: Stack) => void }) {
   const focus = customers.filter(c => c.layer === "urgent" || c.layer === "abnormal" || c.layer === "churnRisk");
   const [flipped, setFlipped] = useState<Record<string, boolean>>({});
+  // 紧急客户：进入页面后自动触发系统干预（仅首次）
+  useEffect(() => {
+    const urgents = focus.filter(c => c.layer === "urgent");
+    const timers = urgents.map((c, i) => setTimeout(() => autoIntervene(c.name), 600 + i * 400));
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const flip = (id: string) => setFlipped(f => ({ ...f, [id]: !f[id] }));
   return (
     <div className="-mx-4 px-4 flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
@@ -293,11 +380,20 @@ function FocusCarousel({ push }: { push: (s: Stack) => void }) {
               <div className="w-9 h-9 rounded-full bg-card flex items-center justify-center text-sm font-medium">{c.name[0]}</div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{c.name} <span className="text-[10px] text-muted-foreground font-normal">{c.gender}·{c.age}</span></div>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded ${tone.chip}`}>{layerMeta[c.layer].label}</span>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${tone.chip}`}>{layerMeta[c.layer].label}</span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded border ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
+                </div>
               </div>
               <button onClick={() => flip(c.id)} className="p-1 rounded-md bg-card/80 active:bg-card"><RotateCw className="w-3.5 h-3.5 text-muted-foreground" /></button>
             </div>
             <div className="mt-2 text-xs leading-relaxed text-foreground line-clamp-2">{summary}</div>
+            {c.layer === "urgent" && (
+              <div className="mt-2 rounded-lg bg-danger/10 border border-danger/30 px-2 py-1.5 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-danger" />
+                <span className="text-[10px] text-danger font-medium">系统已自动干预 · 应急话术+联系家属已触发</span>
+              </div>
+            )}
             <div className="mt-2 rounded-lg bg-card/80 border border-border p-2">
               <div className="text-[10px] text-muted-foreground flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary" />建议动作</div>
               <div className="text-[11px] mt-0.5 font-medium">{action}</div>
@@ -307,7 +403,7 @@ function FocusCarousel({ push }: { push: (s: Stack) => void }) {
               <div className="text-[11px] mt-0.5 italic text-muted-foreground line-clamp-2">{script}</div>
             </div>
             <div className="mt-2 grid grid-cols-4 gap-1.5">
-              <button onClick={() => toast.success(`正在拨打 ${c.name}`)} className="py-1.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Phone className="w-3.5 h-3.5" /></button>
+              <button onClick={() => placeCall(c.name)} className="py-1.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Phone className="w-3.5 h-3.5" /></button>
               <button onClick={() => toast.info("视频邀请已发送")} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><Video className="w-3.5 h-3.5" /></button>
               <button onClick={() => toast.info("按住说话…")} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><Mic className="w-3.5 h-3.5" /></button>
               <button onClick={() => push({ name: "customer", id: c.id })} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><FileText className="w-3.5 h-3.5" /></button>
@@ -427,6 +523,7 @@ function MClient({ push }: { push: (s: Stack) => void }) {
               <div className="text-[11px] text-muted-foreground truncate mt-0.5">{c.diseases.join(" / ")}</div>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
                 <span className="text-[10px] text-muted-foreground">{c.lastTouch}</span>
               </div>
             </div>
@@ -749,7 +846,7 @@ function TaskDetail({
         )}
 
         <div className="grid grid-cols-3 gap-2">
-          <ActionTile icon={Phone} label="电话" onClick={() => toast.success(`正在拨打 ${t.customer}`)} />
+          <ActionTile icon={Phone} label="电话" onClick={() => placeCall(t.customer)} />
           <ActionTile icon={MessageSquare} label="发消息" onClick={() => toast.info("已打开 IM 草稿")} />
           <ActionTile icon={Video} label="视频" onClick={() => toast.info("视频通话邀请已发送")} />
         </div>
@@ -773,7 +870,7 @@ function TaskDetail({
  * ============================================================ */
 function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
   const c = customers.find(x => x.id === id) as Customer;
-  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "report" | "inquiry" | "med">("basic");
+  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med">("basic");
   // 进入患者详情先弹窗展示一段简介
   const [showIntro, setShowIntro] = useState(true);
   const [trendRange, setTrendRange] = useState<"30" | "90" | "custom">("30");
@@ -821,7 +918,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             </button>
           </div>
           <div className="grid grid-cols-4 gap-2 mt-3">
-            <ActionTile dark icon={Phone} label="电话" onClick={() => toast.success(`正在拨打 ${c.name}`)} />
+            <ActionTile dark icon={Phone} label="电话" onClick={() => placeCall(c.name)} />
             <ActionTile dark icon={MessageSquare} label="IM" onClick={() => push({ name: "chat", id: c.id })} />
             <ActionTile dark icon={Video} label="视频" onClick={() => toast.info("视频邀请已发送")} />
             <ActionTile dark icon={Calendar} label="预约" onClick={() => toast.success("预约已发起")} />
@@ -836,6 +933,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             { id: "history", l: "沟通" },
             { id: "trend",   l: "数据" },
             { id: "family",  l: "家庭" },
+            { id: "station", l: "驿站" },
             { id: "report",  l: "报告" },
             { id: "inquiry", l: "问诊" },
             { id: "med",     l: "用药" },
@@ -1010,6 +1108,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
         {tab === "history" && <CommunicationTimeline />}
 
         {tab === "family" && <FamilyView selfName={c.name} selfAge={c.age} />}
+        {tab === "station" && <StationTab />}
 
         {tab === "report" && <ReportTab />}
         {tab === "inquiry" && <InquiryTab />}
@@ -1028,7 +1127,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             </div>
             <div className="grid grid-cols-4 gap-1">
               {[
-                { i: Phone, c: "primary",   tip: "电话",   on: () => toast.success(`正在拨打 ${c.name}`) },
+                { i: Phone, c: "primary",   tip: "电话",   on: () => placeCall(c.name) },
                 { i: Video, c: "secondary", tip: "视频",   on: () => toast.info("视频邀请已发送") },
                 { i: Mic,   c: "secondary", tip: "语音",   on: () => toast.info("按住说话…") },
                 { i: MessageSquare, c: "secondary", tip: "IM", on: () => push({ name: "chat", id: c.id }) },
@@ -1181,6 +1280,15 @@ function CommunicationTimeline() {
                         <pre className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans text-foreground">{e.raw.body}</pre>
                       )}
                       <div className="text-[10px] text-muted-foreground mt-1.5 italic">{e.raw.body.startsWith("[") ? "" : "原始记录"}</div>
+                      {/* 本次沟通 AI 摘要 + 生成待办 */}
+                      <div className="mt-2 rounded-lg bg-card border border-primary/20 p-2">
+                        <div className="text-[10px] text-primary flex items-center gap-1 mb-1"><Sparkles className="w-3 h-3" />本次沟通 AI 总结</div>
+                        <div className="text-[11px] leading-relaxed">{e.sum}。建议后续动作：{e.mood === "负向" ? "24h 内回访 + 情绪关怀" : e.warm ? "维持节奏，3 天后复测" : "推送相关宣教，1 周后跟进"}。</div>
+                        <div className="flex gap-1.5 mt-2">
+                          <button onClick={() => toast.success("已生成待办：" + e.sum)} className="text-[10px] px-2 py-1 rounded bg-primary text-primary-foreground flex items-center gap-1"><ClipboardList className="w-3 h-3" />生成待办</button>
+                          <button onClick={() => toast.info("打开完整聊天上下文")} className="text-[10px] px-2 py-1 rounded bg-secondary flex items-center gap-1"><MessageSquare className="w-3 h-3" />查看上下文</button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1343,7 +1451,7 @@ function FamilyView({ selfName, selfAge }: { selfName: string; selfAge: number }
               </div>
             )}
             <div className="mt-3 flex gap-2">
-              <button onClick={() => toast.success(`正在拨打 ${picked.name}`)} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm flex items-center justify-center gap-1.5"><Phone className="w-4 h-4" />联系</button>
+              <button onClick={() => placeCall(picked.name)} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm flex items-center justify-center gap-1.5"><Phone className="w-4 h-4" />联系</button>
               <button onClick={() => toast.info(picked.isQt ? "已发送家庭关怀任务" : "邀请短信已发送")} className="flex-1 py-2.5 rounded-xl bg-secondary text-sm">{picked.isQt ? "发起协同" : "邀请加入"}</button>
             </div>
           </div>
@@ -1793,7 +1901,7 @@ function ProfilePeek({ c, onClose }: { c: Customer; onClose: () => void }) {
         </div>
         <div className="mt-3 text-xs text-muted-foreground leading-relaxed">{c.note}</div>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button onClick={() => { onClose(); toast.success(`正在拨打 ${c.name}`); }} className="py-2.5 rounded-lg bg-primary text-primary-foreground text-sm">立即电话</button>
+          <button onClick={() => { onClose(); placeCall(c.name); }} className="py-2.5 rounded-lg bg-primary text-primary-foreground text-sm">立即电话</button>
           <button onClick={onClose} className="py-2.5 rounded-lg bg-secondary text-sm">关闭</button>
         </div>
       </div>
@@ -2289,7 +2397,7 @@ function TaskStats({ pop }: { pop: () => void }) {
 /* ============================================================
  * 话术模板库
  * ============================================================ */
-function ScriptLibrary({ pop }: { pop: () => void }) {
+function ScriptLibrary({ pop, push }: { pop: () => void; push?: (s: Stack) => void }) {
   const cats = ["全部", "异常处置", "主动关怀", "复诊提醒", "用药提醒", "挽回话术"];
   const [cat, setCat] = useState(0);
   const scripts = [
@@ -2303,7 +2411,7 @@ function ScriptLibrary({ pop }: { pop: () => void }) {
   return (
     <div>
       <PageHeader title="话术模板库" pop={pop}
-        right={<button onClick={() => toast.success("已新建草稿")} className="p-1.5"><Plus className="w-5 h-5" /></button>} />
+        right={<button onClick={() => push ? push({ name: "newScript" }) : toast.info("已打开新建")} className="p-1.5"><Plus className="w-5 h-5" /></button>} />
       <div className="px-4 pt-3">
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
           {cats.map((c, i) => (
