@@ -3217,3 +3217,241 @@ function FilterChip({ children, active, onClick }: { children: React.ReactNode; 
       }`}>{children}</button>
   );
 }
+
+/* ============================================================
+ * 驿站 Tab — 患者在线下驿站的服务/活动/饮食
+ * ============================================================ */
+function StationTab() {
+  const [diet, setDiet] = useState<"home" | "station">("home");
+  const checkups = [
+    { d: "2026/04/12", t: "季度体检", station: "浦东世纪驿站", abnormal: ["LDL 3.6 ↑", "尿酸 482 ↑"] },
+    { d: "2026/01/08", t: "年度体检", station: "浦东世纪驿站", abnormal: ["空腹血糖 7.8 ↑"] },
+  ];
+  const prints = [
+    { d: "2026/05/02", t: "5 月健康方案 · 控糖版", pages: 6, by: "林姐" },
+    { d: "2026/04/05", t: "运动处方 · 中等强度",   pages: 2, by: "周教练" },
+  ];
+  // 营养餐 — 用餐记录
+  const meals = [
+    { d: "今日 12:10", t: "燕麦鸡胸藜麦碗（驿站）", g: 380, kcal: 520, carb: 58, protein: 32, fat: 14, type: "蛋白质为主" },
+    { d: "昨日 18:30", t: "杂粮饭 + 清蒸鲈鱼（外食）", g: 420, kcal: 610, carb: 70, protein: 36, fat: 18, type: "碳水为主" },
+    { d: "昨日 12:00", t: "西芹百合炒虾仁（居家）",   g: 320, kcal: 410, carb: 22, protein: 28, fat: 22, type: "脂肪偏高" },
+  ];
+  // 居家饮食 vs 驿站饮食
+  const homeMeals = meals.filter(m => m.t.includes("居家") || m.t.includes("外食"));
+  const stationMeals = meals.filter(m => m.t.includes("驿站"));
+  const tests = [
+    { d: "今日 09:12", t: "驿站快测血糖（空腹）", v: "6.4 mmol/L", ok: true },
+    { d: "昨日 17:40", t: "驿站血压",             v: "138/86 mmHg", ok: false },
+    { d: "5/14",       t: "驿站体脂秤",           v: "67.2 kg · 体脂 27.4%", ok: true },
+  ];
+  // 线下活动 / 赛事
+  const events = [
+    { d: "5/04", t: "蜻蜓杯·浦东驿站健步走", role: "参与者", rank: "总第 18 名 / 156 人", station: "浦东世纪驿站" },
+    { d: "4/20", t: "糖友烹饪比赛",           role: "选手",   rank: "二等奖 🥈",            station: "浦东世纪驿站" },
+    { d: "3/15", t: "春日太极养生课",         role: "学员",   rank: "完课 · 出勤 100%",      station: "徐汇衡山驿站" },
+  ];
+  const dietList = diet === "home" ? homeMeals : stationMeals;
+  return (
+    <>
+      <Section title="驿站体检记录">
+        <div className="space-y-2">
+          {checkups.map((c, i) => (
+            <button key={i} onClick={() => toast.info(`已打开 ${c.t} 报告`)}
+              className="w-full rounded-xl border border-border p-3 text-left active:bg-secondary">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-muted-foreground">{c.d}</span>
+                <span className="text-sm font-medium">{c.t}</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">{c.station}</span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {c.abnormal.map(a => <span key={a} className="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger">{a}</span>)}
+              </div>
+            </button>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="健康方案打印记录">
+        <div className="space-y-1.5">
+          {prints.map((p, i) => (
+            <div key={i} className="flex items-center gap-2 py-1.5">
+              <FileText className="w-4 h-4 text-primary" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm">{p.t}</div>
+                <div className="text-[10px] text-muted-foreground">{p.d} · {p.pages} 页 · 由 {p.by} 打印</div>
+              </div>
+              <button onClick={() => toast.success("已重新发送至驿站打印")} className="text-[11px] text-primary">重打</button>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="营养餐 · 用餐记录">
+        <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+          <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold">1540</div><div className="text-[10px] text-muted-foreground">今日 kcal</div></div>
+          <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold text-primary">42%</div><div className="text-[10px] text-muted-foreground">碳水占比</div></div>
+          <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold text-success">达标</div><div className="text-[10px] text-muted-foreground">三大营养素</div></div>
+        </div>
+        <div className="space-y-2">
+          {meals.map((m, i) => (
+            <div key={i} className="rounded-lg border border-border p-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">{m.t}</span>
+                <span className="text-[11px] text-muted-foreground">{m.d}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+                <span className="px-1.5 py-0.5 rounded bg-secondary">{m.g} g</span>
+                <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">{m.kcal} kcal</span>
+                <span className="px-1.5 py-0.5 rounded bg-warning/10 text-[oklch(0.5_0.13_75)]">碳水 {m.carb}g</span>
+                <span className="px-1.5 py-0.5 rounded bg-success/10 text-success">蛋白 {m.protein}g</span>
+                <span className="px-1.5 py-0.5 rounded bg-danger/10 text-danger">脂肪 {m.fat}g</span>
+                <span className="px-1.5 py-0.5 rounded bg-secondary">{m.type}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="饮食来源 · 居家 vs 驿站">
+        <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs mb-3">
+          {(["home","station"] as const).map(d => (
+            <button key={d} onClick={() => setDiet(d)}
+              className={`flex-1 py-1.5 rounded-lg ${diet===d?"bg-card shadow-sm font-medium":"text-muted-foreground"}`}>
+              {d === "home" ? "居家饮食（居家 + 外食）" : "驿站饮食"}
+            </button>
+          ))}
+        </div>
+        <div className="space-y-1.5">
+          {dietList.map((m,i)=>(
+            <div key={i} className="flex items-center justify-between text-xs py-1">
+              <div className="flex-1 min-w-0 truncate">{m.t}</div>
+              <span className="text-muted-foreground ml-2">{m.kcal} kcal</span>
+            </div>
+          ))}
+          {dietList.length === 0 && <div className="text-xs text-muted-foreground py-3 text-center">暂无记录</div>}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-2">
+            <div className="text-[10px] text-muted-foreground">居家+外食占比</div>
+            <div className="text-base font-semibold text-primary">62%</div>
+          </div>
+          <div className="rounded-lg bg-success/5 border border-success/20 p-2">
+            <div className="text-[10px] text-muted-foreground">驿站餐占比</div>
+            <div className="text-base font-semibold text-success">38%</div>
+          </div>
+        </div>
+      </Section>
+
+      <Section title="驿站测试数据">
+        <div className="space-y-1.5">
+          {tests.map((t,i)=>(
+            <div key={i} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0">
+              <Activity className={`w-3.5 h-3.5 ${t.ok?"text-success":"text-danger"}`} />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm">{t.t}</div>
+                <div className="text-[10px] text-muted-foreground">{t.d}</div>
+              </div>
+              <span className={`text-xs font-medium ${t.ok?"text-success":"text-danger"}`}>{t.v}</span>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      <Section title="线下活动 / 赛事">
+        <div className="space-y-2">
+          {events.map((e,i)=>(
+            <div key={i} className="rounded-xl border border-border p-3">
+              <div className="flex items-center gap-2">
+                <Gift className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">{e.t}</span>
+                <span className="ml-auto text-[11px] text-muted-foreground">{e.d}</span>
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-[11px]">
+                <span className="px-1.5 py-0.5 rounded bg-secondary">{e.role}</span>
+                <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">{e.rank}</span>
+              </div>
+              <div className="mt-1 text-[10px] text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />{e.station}</div>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/* ============================================================
+ * 新建话术
+ * ============================================================ */
+function NewScript({ pop }: { pop: () => void }) {
+  const cats = ["异常处置", "主动关怀", "复诊提醒", "用药提醒", "挽回话术", "节日关怀"];
+  const [cat, setCat] = useState(cats[0]);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [scene, setScene] = useState<string[]>([]);
+  const [shared, setShared] = useState(true);
+  const vars = ["{客户}", "{value}", "{time}", "{medicine}", "{doctor}"];
+  const scenes = ["凌晨", "餐后", "睡前", "复诊前", "复诊后", "化疗", "情绪低落"];
+  const toggleScene = (s: string) => setScene(arr => arr.includes(s) ? arr.filter(x=>x!==s) : [...arr, s]);
+  const insert = (v: string) => setBody(b => (b ? b + " " + v : v));
+  return (
+    <div>
+      <PageHeader title="新建话术" pop={pop}
+        right={
+          <button
+            onClick={() => { if (!title || !body) { toast.error("请填写标题与内容"); return; } toast.success("话术已保存到模板库"); pop(); }}
+            className="text-xs text-primary px-2 py-1.5 font-medium">保存</button>
+        } />
+      <div className="p-4 space-y-3">
+        <Section title="分类">
+          <div className="flex gap-1.5 flex-wrap">
+            {cats.map(c => (
+              <Chip key={c} active={cat === c} onClick={() => setCat(c)}>{c}</Chip>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="基本信息">
+          <Field label="话术标题" value={title} onChange={setTitle} placeholder="如：凌晨低血糖关怀" />
+        </Section>
+
+        <Section title="内容">
+          <div className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-primary" />支持变量占位，点击插入
+          </div>
+          <div className="flex gap-1.5 flex-wrap mb-2">
+            {vars.map(v => (
+              <button key={v} onClick={() => insert(v)}
+                className="text-[10px] px-2 py-1 rounded bg-secondary text-muted-foreground active:bg-muted">{v}</button>
+            ))}
+          </div>
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            placeholder="{客户}您好，凌晨监测到您的血糖偏低（{value}），现在感觉如何？建议立即……"
+            className="w-full min-h-[140px] rounded-xl bg-secondary px-3 py-2.5 text-sm focus:outline-none" />
+          <button onClick={() => { setBody("{客户}您好，结合您今日{value}的情况，建议……"); toast.success("已生成 AI 草稿"); }}
+            className="mt-2 w-full py-2 rounded-lg bg-primary/10 text-primary text-xs flex items-center justify-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" />AI 帮我起草
+          </button>
+        </Section>
+
+        <Section title="适用场景标签">
+          <div className="flex gap-1.5 flex-wrap">
+            {scenes.map(s => (
+              <Chip key={s} active={scene.includes(s)} onClick={() => toggleScene(s)}>{s}</Chip>
+            ))}
+          </div>
+        </Section>
+
+        <ToggleRow label="共享至团队话术库" checked={shared} onChange={setShared} />
+
+        <Section title="预览">
+          <div className="rounded-lg bg-secondary/60 p-3 text-sm leading-relaxed">
+            {body || <span className="text-muted-foreground">在上方填写内容，预览将自动更新…</span>}
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
