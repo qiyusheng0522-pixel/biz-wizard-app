@@ -28,6 +28,7 @@ type Stack =
   | { name: "care" }            // 我的关怀效果
   | { name: "stats" }           // 我的任务统计
   | { name: "scripts" }         // 话术模板库
+  | { name: "newScript" }       // 新建话术
   | { name: "mdt" }             // MDT 会诊记录
   | { name: "settings" }
   | { name: "profile" }
