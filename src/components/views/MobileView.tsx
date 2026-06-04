@@ -2759,6 +2759,28 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+/** 手风琴样式分组 — 客户档案中【驿站/报告/问诊】等多分类内容使用 */
+function AccordionSection({
+  title, count, defaultOpen, children,
+}: { title: string; count?: number | string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  return (
+    <div className="rounded-2xl bg-card border border-border overflow-hidden">
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full px-4 py-3 flex items-center justify-between active:bg-secondary/60">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">{title}</span>
+          {count !== undefined && <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{count}</span>}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 -mt-1">{children}</div>
+      )}
+    </div>
+  );
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-secondary p-3">
