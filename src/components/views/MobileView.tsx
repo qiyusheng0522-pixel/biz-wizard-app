@@ -192,6 +192,10 @@ function MHome({
   const doneCount = Object.values(taskState).filter(Boolean).length;
   // 任务来源 Tab：AI / 客户主动 / 协同 / 自建 / 节日 / 续费
   const [taskSrc, setTaskSrc] = useState<"all" | "ai" | "client" | "team" | "self" | "holiday" | "renew">("all");
+  // 严重等级筛选
+  const [sev, setSev] = useState<"all" | Severity>("all");
+  // 用户标签筛选
+  const [tier, setTier] = useState<"all" | "普通" | "VIP" | "VVIP" | "特别关注">("all");
   // 节日 + 续费类任务（追加到核心 tasks 之外，仅前端模拟）
   const extraTasks = [
     { id: "X-1", src: "client" as const,  customer: "陈姐",  title: "客户主动求助：失眠 3 天怎么办",   priority: "P1", due: "今日", tag: "客户主动" },
@@ -205,7 +209,23 @@ function MHome({
     ...tasks.map(t => ({ id: t.id, src: t.source === "医师指派" ? "team" as const : t.source === "客户求助" ? "client" as const : "ai" as const, customer: t.customer, title: t.title, priority: t.priority, due: t.due, tag: t.source })),
     ...extraTasks,
   ];
-  const visibleTasks = taskSrc === "all" ? merged : merged.filter(t => t.src === taskSrc);
+  // 客户名 → 客户对象
+  const findCust = (name: string) => customers.find(c => c.name === name);
+  // 严重等级（特别关注客户：所有事项至少为"高"）
+  const severityOf = (t: { customer: string; priority: string }): Severity => {
+    const base = sevFromPrio(t.priority);
+    const cu = findCust(t.customer);
+    if (cu && tierOf(cu.id) === "特别关注" && (base === "中" || base === "低")) return "高";
+    return base;
+  };
+  const visibleTasks = merged
+    .filter(t => taskSrc === "all" || t.src === taskSrc)
+    .filter(t => sev === "all" || severityOf(t) === sev)
+    .filter(t => {
+      if (tier === "all") return true;
+      const cu = findCust(t.customer);
+      return cu ? tierOf(cu.id) === tier : false;
+    });
   return (
     <div className="px-4 py-3 space-y-4">
       {/* 问候卡 */}
