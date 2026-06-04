@@ -114,6 +114,13 @@ export function MobileView() {
   );
   // 首次登录工作台总结弹窗（每次进入预览都会展示，方便验收）
   const [showWelcome, setShowWelcome] = useState(true);
+  // 客户列表预设筛选（用于"我的-在管患者"区块点击跳转）
+  const [clientPreset, setClientPreset] = useState<{ layer?: CustomerLayer; tier?: string; risk?: RiskLevel; source?: string; toast?: string } | null>(null);
+  const goClient = (preset?: typeof clientPreset) => {
+    setClientPreset(preset ?? null);
+    setTab("client");
+    if (preset?.toast) toast.info(preset.toast);
+  };
 
   const top = stack[stack.length - 1];
   const push = (s: Stack) => setStack(prev => [...prev, s]);
@@ -141,9 +148,9 @@ export function MobileView() {
         {top.name === "tabs" && (
           <>
             {tab === "home"   && <MHome push={push} taskState={taskState} toggleTask={toggleTask} />}
-            {tab === "client" && <MClient push={push} />}
+            {tab === "client" && <MClient push={push} preset={clientPreset} onPresetApplied={() => setClientPreset(null)} />}
             {tab === "im"     && <MIM push={push} />}
-            {tab === "me"     && <MMe push={push} />}
+            {tab === "me"     && <MMe push={push} goClient={goClient} />}
           </>
         )}
         {top.name === "task"          && <TaskDetail id={top.id} pop={pop} taskState={taskState} toggleTask={toggleTask} />}
