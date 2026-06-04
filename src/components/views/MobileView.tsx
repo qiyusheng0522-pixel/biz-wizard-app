@@ -130,7 +130,7 @@ export function MobileView() {
         {top.name === "addCustomer"   && <AddCustomer pop={pop} />}
         {top.name === "care"          && <CareEffect pop={pop} />}
         {top.name === "stats"         && <TaskStats pop={pop} />}
-        {top.name === "scripts"       && <ScriptLibrary pop={pop} />}
+        {top.name === "scripts"       && <ScriptLibrary pop={pop} push={push} />}
         {top.name === "newScript"     && <NewScript pop={pop} />}
         {top.name === "mdt"           && <MdtRecords pop={pop} />}
         {top.name === "settings"      && <SettingsScreen pop={pop} />}
