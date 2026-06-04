@@ -29,6 +29,30 @@ const tierColor = (t: string) =>
   t === "特别关注" ? "bg-danger/10 text-danger border-danger/30" :
   "bg-secondary text-muted-foreground border-border";
 
+// 客户来源（鼓e佳 / 骨安 / 院端转介）
+const SOURCE_MAP: Record<string, "鼓e佳" | "骨安" | "院端转介"> = {
+  "C001": "骨安",
+  "C002": "鼓e佳",
+  "C003": "鼓e佳",
+  "C004": "院端转介",
+  "C005": "骨安",
+  "C006": "鼓e佳",
+};
+const sourceOf = (id: string) => SOURCE_MAP[id] ?? "鼓e佳";
+const sourceColor = (s: string) =>
+  s === "鼓e佳" ? "bg-primary/10 text-primary border-primary/30" :
+  s === "骨安"  ? "bg-success/10 text-success border-success/30" :
+                  "bg-secondary text-muted-foreground border-border";
+
+// 风险等级（由 layer 推导：紧急→高风险，异常→中风险，离网→中风险，其他→低风险）
+type RiskLevel = "高风险" | "中风险" | "低风险";
+const riskOf = (layer: CustomerLayer): RiskLevel =>
+  layer === "urgent" ? "高风险" : (layer === "abnormal" || layer === "churnRisk") ? "中风险" : "低风险";
+const riskColor = (r: RiskLevel) =>
+  r === "高风险" ? "bg-danger/10 text-danger border-danger/30" :
+  r === "中风险" ? "bg-warning/10 text-[oklch(0.5_0.13_75)] border-warning/30" :
+                  "bg-success/10 text-success border-success/30";
+
 // 严重等级映射：P0=紧急、P1=高、P2=中、P3=低
 // "紧急" 仅用于数据较大波动；"特别关注"客户的事项至少为"高"
 type Severity = "紧急" | "高" | "中" | "低";
@@ -90,6 +114,13 @@ export function MobileView() {
   );
   // 首次登录工作台总结弹窗（每次进入预览都会展示，方便验收）
   const [showWelcome, setShowWelcome] = useState(true);
+  // 客户列表预设筛选（用于"我的-在管患者"区块点击跳转）
+  const [clientPreset, setClientPreset] = useState<{ layer?: CustomerLayer; tier?: string; risk?: RiskLevel; source?: string; toast?: string } | null>(null);
+  const goClient = (preset?: typeof clientPreset) => {
+    setClientPreset(preset ?? null);
+    setTab("client");
+    if (preset?.toast) toast.info(preset.toast);
+  };
 
   const top = stack[stack.length - 1];
   const push = (s: Stack) => setStack(prev => [...prev, s]);
@@ -117,9 +148,9 @@ export function MobileView() {
         {top.name === "tabs" && (
           <>
             {tab === "home"   && <MHome push={push} taskState={taskState} toggleTask={toggleTask} />}
-            {tab === "client" && <MClient push={push} />}
+            {tab === "client" && <MClient push={push} preset={clientPreset} onPresetApplied={() => setClientPreset(null)} />}
             {tab === "im"     && <MIM push={push} />}
-            {tab === "me"     && <MMe push={push} />}
+            {tab === "me"     && <MMe push={push} goClient={goClient} />}
           </>
         )}
         {top.name === "task"          && <TaskDetail id={top.id} pop={pop} taskState={taskState} toggleTask={toggleTask} />}
@@ -285,33 +316,11 @@ function MHome({
           <h2 className="font-semibold text-sm">工作台 · 任务清单</h2>
           <span className="text-xs text-muted-foreground">已完成 {doneCount}/{tasks.length}</span>
         </div>
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-          {[
-            { k: "all",     l: "全部" },
-            { k: "ai",      l: "AI 生成" },
-            { k: "client",  l: "客户主动" },
-            { k: "team",    l: "协同" },
-            { k: "self",    l: "自建" },
-            { k: "holiday", l: "节日" },
-            { k: "renew",   l: "续费到期" },
-          ].map(s => (
-            <Chip key={s.k} active={taskSrc === s.k} onClick={() => setTaskSrc(s.k as typeof taskSrc)}>{s.l}</Chip>
-          ))}
-        </div>
-        {/* 严重等级 */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-          <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">等级</span>
-          {(["all","紧急","高","中","低"] as const).map(s => (
-            <Chip key={s} active={sev === s} onClick={() => setSev(s)}>{s === "all" ? "全部" : s}</Chip>
-          ))}
-        </div>
-        {/* 用户标签 */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 -mx-1 px-1">
-          <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">客户</span>
-          {(["all","普通","VIP","VVIP","特别关注"] as const).map(s => (
-            <Chip key={s} active={tier === s} onClick={() => setTier(s)}>{s === "all" ? "全部" : s}</Chip>
-          ))}
-        </div>
+        <TaskFilterBar
+          src={taskSrc} setSrc={setTaskSrc}
+          sev={sev} setSev={setSev}
+          tier={tier} setTier={setTier}
+        />
         <div className="rounded-xl bg-card border border-border divide-y divide-border overflow-hidden">
           {visibleTasks.map(t => {
             const done = taskState[t.id];
@@ -444,10 +453,28 @@ function FocusCarousel({ push }: { push: (s: Stack) => void }) {
 /* ============================================================
  * Tab 2：客户列表
  * ============================================================ */
-function MClient({ push }: { push: (s: Stack) => void }) {
+function MClient({ push, preset, onPresetApplied }: {
+  push: (s: Stack) => void;
+  preset?: { layer?: CustomerLayer; tier?: string; risk?: RiskLevel; source?: string } | null;
+  onPresetApplied?: () => void;
+}) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "urgent" | "abnormal" | "stable" | "new" | "churnRisk">("all");
   const [showAdv, setShowAdv] = useState(false);
+  // 用户等级 / 风险等级 / 来源 快捷筛选
+  const [tierF, setTierF] = useState<"all" | "普通" | "VIP" | "VVIP" | "特别关注">("all");
+  const [riskF, setRiskF] = useState<"all" | RiskLevel>("all");
+  const [srcF,  setSrcF]  = useState<"all" | "鼓e佳" | "骨安" | "院端转介">("all");
+  // 接收来自"我的-在管患者"的预设跳转
+  useEffect(() => {
+    if (!preset) return;
+    if (preset.layer) setFilter(preset.layer);
+    if (preset.tier)  setTierF(preset.tier as typeof tierF);
+    if (preset.risk)  setRiskF(preset.risk);
+    if (preset.source) setSrcF(preset.source as typeof srcF);
+    onPresetApplied?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset]);
   // 多条件筛选：病种 / 年龄段 / 服务包 / 状态
   const [adv, setAdv] = useState<{ disease: string[]; ageRange: string; pkg: string[]; status: string[] }>({
     disease: [], ageRange: "all", pkg: [], status: [],
@@ -468,7 +495,10 @@ function MClient({ push }: { push: (s: Stack) => void }) {
     (adv.disease.length === 0 || adv.disease.some(d => c.diseases.includes(d))) &&
     ageMatch(c.age) &&
     (adv.pkg.length === 0 || adv.pkg.some(p => c.package.includes(p))) &&
-    (adv.status.length === 0 || adv.status.includes(c.layer))
+    (adv.status.length === 0 || adv.status.includes(c.layer)) &&
+    (tierF === "all" || tierOf(c.id) === tierF) &&
+    (riskF === "all" || riskOf(c.layer) === riskF) &&
+    (srcF  === "all" || sourceOf(c.id) === srcF)
   );
   const advCount =
     adv.disease.length + (adv.ageRange !== "all" ? 1 : 0) + adv.pkg.length + adv.status.length;
@@ -501,6 +531,30 @@ function MClient({ push }: { push: (s: Stack) => void }) {
         <Chip active={filter === "new"} onClick={() => setFilter("new")}>新入 1</Chip>
         <Chip active={filter === "churnRisk"} onClick={() => setFilter("churnRisk")}>离网倾向 3</Chip>
       </div>
+      {/* 客户等级 */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">等级</span>
+        {(["all","普通","VIP","VVIP","特别关注"] as const).map(s => (
+          <Chip key={s} active={tierF === s} onClick={() => setTierF(s)}>{s === "all" ? "全部" : s}</Chip>
+        ))}
+      </div>
+      {/* 风险等级 */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">风险</span>
+        {(["all","高风险","中风险","低风险"] as const).map(s => (
+          <Chip key={s} active={riskF === s} onClick={() => setRiskF(s)}>{s === "all" ? "全部" : s}</Chip>
+        ))}
+      </div>
+      {/* 客户来源 */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+        <span className="text-[10px] text-muted-foreground shrink-0 self-center mr-1">来源</span>
+        {(["all","鼓e佳","骨安","院端转介"] as const).map(s => (
+          <Chip key={s} active={srcF === s} onClick={() => setSrcF(s)}>{s === "all" ? "全部" : s}</Chip>
+        ))}
+        <span className="text-[10px] text-muted-foreground shrink-0 self-center ml-1">
+          鼓e佳 = 蜻蜓自有 App · 骨安 = 骨科服务包 · 院端转介 = 合作医院导流
+        </span>
+      </div>
       {advCount > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-[11px] text-muted-foreground">已筛选：</span>
@@ -525,6 +579,8 @@ function MClient({ push }: { push: (s: Stack) => void }) {
               <div className="flex items-center gap-1.5 mt-1">
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded border ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${riskColor(riskOf(c.layer))}`}>{riskOf(c.layer)}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${sourceColor(sourceOf(c.id))}`}>{sourceOf(c.id)}</span>
                 <span className="text-[10px] text-muted-foreground">{c.lastTouch}</span>
               </div>
             </div>
@@ -736,7 +792,10 @@ function MIM({ push }: { push: (s: Stack) => void }) {
 /* ============================================================
  * Tab 4：我的
  * ============================================================ */
-function MMe({ push }: { push: (s: Stack) => void }) {
+function MMe({ push, goClient }: {
+  push: (s: Stack) => void;
+  goClient: (preset?: { layer?: CustomerLayer; tier?: string; risk?: RiskLevel; source?: string; toast?: string } | null) => void;
+}) {
   // 服务时间段筛选
   const [range, setRange] = useState<"7" | "30" | "90">("30");
   // 在管客户分层（演示数据）
@@ -847,17 +906,21 @@ function MMe({ push }: { push: (s: Stack) => void }) {
       <Section title="服务经营指标 · 近 30 天">
         <div className="grid grid-cols-2 gap-2">
           {kpis.map(k => (
-            <button key={k.l} onClick={() => toast.info(`${k.l} 计算口径`, { description: k.tip, duration: 5000 })}
-              className="rounded-xl bg-card border border-border p-3 text-left active:bg-secondary">
+            <div key={k.l} className="rounded-xl bg-card border border-border p-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground">{k.l}</span>
-                <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); toast.info(`${k.l} 计算口径`, { description: k.tip, duration: 6000 }); }}
+                  className="p-0.5 rounded active:bg-secondary"
+                  aria-label={`${k.l} 说明`}
+                >
+                  <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
               </div>
               <div className={`text-xl font-semibold mt-1 ${
                 k.tone === "success" ? "text-success" : k.tone === "danger" ? "text-danger" : "text-primary"
               }`}>{k.v}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{k.tip}</div>
-            </button>
+            </div>
           ))}
         </div>
       </Section>
@@ -866,31 +929,44 @@ function MMe({ push }: { push: (s: Stack) => void }) {
       <Section title={`在管患者 · 共 ${totalManage} 位`}>
         {/* 分层 */}
         <div className="space-y-2">
-          {layerDist.map(l => (
-            <div key={l.k}>
-              <div className="flex justify-between text-xs mb-1"><span>{l.k}</span><span className="text-muted-foreground">{l.v} 位</span></div>
-              <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                <div className={`h-full ${l.c}`} style={{ width: `${(l.v/totalManage)*100}%` }} />
-              </div>
-            </div>
-          ))}
+          {layerDist.map(l => {
+            const presetFor = (k: string): Parameters<typeof goClient>[0] => {
+              if (k === "活跃服务中") return { layer: "stable", toast: `查看 ${k} 的 ${l.v} 位客户` };
+              if (k === "新签待激活") return { layer: "new",    toast: `查看 ${k} 的 ${l.v} 位客户` };
+              if (k === "续费窗口期") return { layer: "churnRisk", toast: `查看 ${k} 的 ${l.v} 位客户` };
+              return { risk: "高风险", toast: `查看 ${k} 的 ${l.v} 位客户` };
+            };
+            return (
+              <button key={l.k} onClick={() => goClient(presetFor(l.k))}
+                className="w-full text-left active:opacity-70">
+                <div className="flex justify-between text-xs mb-1">
+                  <span>{l.k}</span>
+                  <span className="text-muted-foreground">{l.v} 位 <ChevronRight className="inline w-3 h-3 -mt-0.5" /></span>
+                </div>
+                <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                  <div className={`h-full ${l.c}`} style={{ width: `${(l.v/totalManage)*100}%` }} />
+                </div>
+              </button>
+            );
+          })}
         </div>
         {/* 服务周期范围 */}
         <div className="mt-4">
-          <div className="text-[11px] text-muted-foreground mb-2">服务周期分布</div>
+          <div className="text-[11px] text-muted-foreground mb-2">服务周期分布 · 点击查看患者</div>
           <div className="flex items-end h-20 gap-1.5">
             {cycleDist.map(c => (
-              <div key={c.l} className="flex-1 flex flex-col items-center gap-1">
+              <button key={c.l} onClick={() => goClient({ toast: `已筛选「${c.l}」服务周期共 ${c.v} 位客户` })}
+                className="flex-1 flex flex-col items-center gap-1 active:opacity-70">
                 <div className="w-full rounded-t bg-[image:var(--gradient-primary)]" style={{ height: `${(c.v/Math.max(...cycleDist.map(x=>x.v)))*100}%` }} />
                 <span className="text-[9px] text-muted-foreground text-center leading-tight">{c.l}</span>
                 <span className="text-[10px] font-medium">{c.v}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
         {/* 用户阶段 */}
         <div className="mt-4">
-          <div className="text-[11px] text-muted-foreground mb-2">客户阶段</div>
+          <div className="text-[11px] text-muted-foreground mb-2">客户阶段 · 点击查看患者</div>
           <div className="flex items-center gap-1">
             {[
               { l: "导入期", v: 10, c: "bg-primary/40" },
@@ -899,10 +975,11 @@ function MMe({ push }: { push: (s: Stack) => void }) {
               { l: "维护期", v: 12, c: "bg-success" },
               { l: "流失期", v: 4,  c: "bg-danger" },
             ].map(s => (
-              <div key={s.l} className="flex-1">
+              <button key={s.l} onClick={() => goClient({ toast: `已筛选「${s.l}」客户 ${s.v} 位` })}
+                className="flex-1 active:opacity-70">
                 <div className={`h-6 rounded ${s.c} flex items-center justify-center text-[10px] text-white font-medium`}>{s.v}</div>
                 <div className="text-[9px] text-center text-muted-foreground mt-1">{s.l}</div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -914,7 +991,7 @@ function MMe({ push }: { push: (s: Stack) => void }) {
               <path d="M30,30 Q50,20 75,30 L85,50 Q70,70 50,75 Q30,80 20,60 Z" fill="oklch(0.85 0.04 200)" stroke="oklch(0.6 0.1 200)" strokeWidth="0.5" />
             </svg>
             {cityDist.map(c => (
-              <button key={c.c} onClick={()=>toast.info(`${c.c} · ${c.v} 位在管客户`)}
+              <button key={c.c} onClick={() => goClient({ toast: `${c.c} · ${c.v} 位在管客户` })}
                 className="absolute -translate-x-1/2 -translate-y-1/2 group"
                 style={{ left: `${c.x}%`, top: `${c.y}%` }}>
                 <span className="block rounded-full bg-primary/80 border-2 border-card shadow"
@@ -1657,27 +1734,36 @@ function ReportTab() {
     { d: "2026/03", t: "MDT 会诊纪要 #028", tags: ["MDT"],       status: "已读" },
     { d: "2026/02", t: "年度体检解读",  tags: ["体检"],           status: "已读" },
   ];
+  // 按类型分组（手风琴每一组一个分类）
+  const groups: { k: string; items: typeof reports }[] = [
+    { k: "月度报告",   items: reports.filter(r => r.t.includes("月报")) },
+    { k: "季度/年度", items: reports.filter(r => r.t.includes("季度") || r.t.includes("年度")) },
+    { k: "MDT / 专项", items: reports.filter(r => r.tags.includes("MDT")) },
+  ];
   return (
-    <>
-      <Section title="健康报告">
-        <div className="space-y-2">
-          {reports.map((r, i) => (
-            <button key={i} onClick={() => toast.info(`已打开 ${r.t}`)}
-              className="w-full rounded-xl border border-border p-3 flex items-center gap-3 active:bg-secondary text-left">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileText className="w-4 h-4 text-primary" /></div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium flex items-center gap-1.5">
-                  {r.t}
-                  {r.status === "新" && <span className="text-[10px] px-1.5 py-0 rounded bg-danger/10 text-danger">NEW</span>}
+    <div className="space-y-2.5">
+      {groups.map((g, gi) => (
+        <AccordionSection key={g.k} title={g.k} count={g.items.length} defaultOpen={gi === 0}>
+          <div className="space-y-2">
+            {g.items.map((r, i) => (
+              <button key={i} onClick={() => toast.info(`已打开 ${r.t}`)}
+                className="w-full rounded-xl border border-border p-3 flex items-center gap-3 active:bg-secondary text-left">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><FileText className="w-4 h-4 text-primary" /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    {r.t}
+                    {r.status === "新" && <span className="text-[10px] px-1.5 py-0 rounded bg-danger/10 text-danger">NEW</span>}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">{r.d} · {r.tags.join(" / ")}</div>
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">{r.d} · {r.tags.join(" / ")}</div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
-      </Section>
-    </>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            ))}
+            {g.items.length === 0 && <div className="text-xs text-muted-foreground py-2 text-center">该分类暂无报告</div>}
+          </div>
+        </AccordionSection>
+      ))}
+    </div>
   );
 }
 
@@ -1690,8 +1776,8 @@ function InquiryTab() {
     { d: "4/15", who: "赵主任",           topic: "图文问诊", body: "上传眼底照片 → 排查糖网。建议眼科专科就诊。" },
   ];
   return (
-    <>
-      <Section title="问诊与医嘱">
+    <div className="space-y-2.5">
+      <AccordionSection title="问诊与医嘱" count={list.length} defaultOpen>
         <div className="space-y-2">
           {list.map((r, i) => (
             <div key={i} className="rounded-xl border border-border p-3">
@@ -1705,15 +1791,15 @@ function InquiryTab() {
             </div>
           ))}
         </div>
-      </Section>
-      <Section title="发起新问诊">
+      </AccordionSection>
+      <AccordionSection title="发起新问诊">
         <div className="grid grid-cols-3 gap-2">
           <ActionTile icon={MessageSquare} label="图文问诊" onClick={() => toast.success("已发起图文问诊")} />
           <ActionTile icon={Video}         label="视频问诊" onClick={() => toast.success("视频问诊已预约")} />
           <ActionTile icon={Stethoscope}   label="MDT 申请" onClick={() => toast.success("MDT 申请已提交")} />
         </div>
-      </Section>
-    </>
+      </AccordionSection>
+    </div>
   );
 }
 
@@ -2726,11 +2812,102 @@ function Chip({ children, active, onClick }: { children: React.ReactNode; active
   );
 }
 
+/**
+ * 任务清单筛选条 — 单行精简版
+ * 只展示"来源"快捷标签 + 一个"筛选"入口（弹出严重等级 / 客户标签）
+ */
+function TaskFilterBar({
+  src, setSrc, sev, setSev, tier, setTier,
+}: {
+  src: "all" | "ai" | "client" | "team" | "self" | "holiday" | "renew";
+  setSrc: (v: "all" | "ai" | "client" | "team" | "self" | "holiday" | "renew") => void;
+  sev: "all" | Severity;
+  setSev: (v: "all" | Severity) => void;
+  tier: "all" | "普通" | "VIP" | "VVIP" | "特别关注";
+  setTier: (v: "all" | "普通" | "VIP" | "VVIP" | "特别关注") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const srcs = [
+    { k: "all",     l: "全部" },
+    { k: "ai",      l: "AI 生成" },
+    { k: "client",  l: "客户主动" },
+    { k: "team",    l: "协同" },
+    { k: "self",    l: "自建" },
+    { k: "holiday", l: "节日" },
+    { k: "renew",   l: "续费到期" },
+  ] as const;
+  const advCount = (sev !== "all" ? 1 : 0) + (tier !== "all" ? 1 : 0);
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1.5">
+        <div className="flex-1 flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1">
+          {srcs.map(s => (
+            <Chip key={s.k} active={src === s.k} onClick={() => setSrc(s.k as typeof src)}>{s.l}</Chip>
+          ))}
+        </div>
+        <button onClick={() => setOpen(o => !o)}
+          className={`shrink-0 relative px-2.5 py-1.5 rounded-full text-xs flex items-center gap-1 border ${
+            open || advCount > 0 ? "bg-primary/10 text-primary border-primary/30" : "bg-secondary text-muted-foreground border-transparent"
+          }`}>
+          <Filter className="w-3.5 h-3.5" />筛选
+          {advCount > 0 && <span className="text-[9px] px-1 rounded-full bg-primary text-primary-foreground">{advCount}</span>}
+        </button>
+      </div>
+      {open && (
+        <div className="rounded-xl bg-secondary/40 border border-border p-2.5 space-y-2 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div>
+            <div className="text-[10px] text-muted-foreground mb-1.5">严重等级（仅数据较大波动展示「紧急」）</div>
+            <div className="flex gap-1.5 flex-wrap">
+              {(["all","紧急","高","中","低"] as const).map(s => (
+                <Chip key={s} active={sev === s} onClick={() => setSev(s)}>{s === "all" ? "全部" : s}</Chip>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="text-[10px] text-muted-foreground mb-1.5">客户等级（特别关注客户的事项至少为"高"）</div>
+            <div className="flex gap-1.5 flex-wrap">
+              {(["all","普通","VIP","VVIP","特别关注"] as const).map(s => (
+                <Chip key={s} active={tier === s} onClick={() => setTier(s)}>{s === "all" ? "全部" : s}</Chip>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => { setSev("all"); setTier("all"); }} className="text-[11px] text-muted-foreground">重置</button>
+            <button onClick={() => setOpen(false)} className="text-[11px] text-primary font-medium">完成</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-card border border-border p-4">
       <div className="text-sm font-semibold mb-2">{title}</div>
       {children}
+    </div>
+  );
+}
+
+/** 手风琴样式分组 — 客户档案中【驿站/报告/问诊】等多分类内容使用 */
+function AccordionSection({
+  title, count, defaultOpen, children,
+}: { title: string; count?: number | string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(!!defaultOpen);
+  return (
+    <div className="rounded-2xl bg-card border border-border overflow-hidden">
+      <button onClick={() => setOpen(o => !o)}
+        className="w-full px-4 py-3 flex items-center justify-between active:bg-secondary/60">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">{title}</span>
+          {count !== undefined && <span className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-muted-foreground">{count}</span>}
+        </div>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-4 -mt-1">{children}</div>
+      )}
     </div>
   );
 }
@@ -3222,24 +3399,16 @@ function FilterChip({ children, active, onClick }: { children: React.ReactNode; 
  * 驿站 Tab — 患者在线下驿站的服务/活动/饮食
  * ============================================================ */
 function StationTab() {
-  const [diet, setDiet] = useState<"home" | "station">("home");
-  const checkups = [
-    { d: "2026/04/12", t: "季度体检", station: "浦东世纪驿站", abnormal: ["LDL 3.6 ↑", "尿酸 482 ↑"] },
-    { d: "2026/01/08", t: "年度体检", station: "浦东世纪驿站", abnormal: ["空腹血糖 7.8 ↑"] },
-  ];
-  const prints = [
-    { d: "2026/05/02", t: "5 月健康方案 · 控糖版", pages: 6, by: "林姐" },
-    { d: "2026/04/05", t: "运动处方 · 中等强度",   pages: 2, by: "周教练" },
-  ];
   // 营养餐 — 用餐记录
   const meals = [
     { d: "今日 12:10", t: "燕麦鸡胸藜麦碗（驿站）", g: 380, kcal: 520, carb: 58, protein: 32, fat: 14, type: "蛋白质为主" },
     { d: "昨日 18:30", t: "杂粮饭 + 清蒸鲈鱼（外食）", g: 420, kcal: 610, carb: 70, protein: 36, fat: 18, type: "碳水为主" },
     { d: "昨日 12:00", t: "西芹百合炒虾仁（居家）",   g: 320, kcal: 410, carb: 22, protein: 28, fat: 22, type: "脂肪偏高" },
   ];
-  // 居家饮食 vs 驿站饮食
-  const homeMeals = meals.filter(m => m.t.includes("居家") || m.t.includes("外食"));
-  const stationMeals = meals.filter(m => m.t.includes("驿站"));
+  const sourceTag = (t: string) =>
+    t.includes("驿站") ? { l: "驿站", c: "bg-success/10 text-success" } :
+    t.includes("外食") ? { l: "外食", c: "bg-warning/10 text-[oklch(0.5_0.13_75)]" } :
+                        { l: "居家", c: "bg-primary/10 text-primary" };
   const tests = [
     { d: "今日 09:12", t: "驿站快测血糖（空腹）", v: "6.4 mmol/L", ok: true },
     { d: "昨日 17:40", t: "驿站血压",             v: "138/86 mmHg", ok: false },
@@ -3251,99 +3420,41 @@ function StationTab() {
     { d: "4/20", t: "糖友烹饪比赛",           role: "选手",   rank: "二等奖 🥈",            station: "浦东世纪驿站" },
     { d: "3/15", t: "春日太极养生课",         role: "学员",   rank: "完课 · 出勤 100%",      station: "徐汇衡山驿站" },
   ];
-  const dietList = diet === "home" ? homeMeals : stationMeals;
   return (
-    <>
-      <Section title="驿站体检记录">
-        <div className="space-y-2">
-          {checkups.map((c, i) => (
-            <button key={i} onClick={() => toast.info(`已打开 ${c.t} 报告`)}
-              className="w-full rounded-xl border border-border p-3 text-left active:bg-secondary">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground">{c.d}</span>
-                <span className="text-sm font-medium">{c.t}</span>
-                <span className="ml-auto text-[10px] text-muted-foreground">{c.station}</span>
-              </div>
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {c.abnormal.map(a => <span key={a} className="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger">{a}</span>)}
-              </div>
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="健康方案打印记录">
-        <div className="space-y-1.5">
-          {prints.map((p, i) => (
-            <div key={i} className="flex items-center gap-2 py-1.5">
-              <FileText className="w-4 h-4 text-primary" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm">{p.t}</div>
-                <div className="text-[10px] text-muted-foreground">{p.d} · {p.pages} 页 · 由 {p.by} 打印</div>
-              </div>
-              <button onClick={() => toast.success("已重新发送至驿站打印")} className="text-[11px] text-primary">重打</button>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="营养餐 · 用餐记录">
+    <div className="space-y-2.5">
+      <AccordionSection title="营养餐 · 用餐记录" count={meals.length} defaultOpen>
         <div className="grid grid-cols-3 gap-2 mb-3 text-center">
           <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold">1540</div><div className="text-[10px] text-muted-foreground">今日 kcal</div></div>
           <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold text-primary">42%</div><div className="text-[10px] text-muted-foreground">碳水占比</div></div>
           <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold text-success">达标</div><div className="text-[10px] text-muted-foreground">三大营养素</div></div>
         </div>
         <div className="space-y-2">
-          {meals.map((m, i) => (
-            <div key={i} className="rounded-lg border border-border p-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{m.t}</span>
-                <span className="text-[11px] text-muted-foreground">{m.d}</span>
+          {meals.map((m, i) => {
+            const tag = sourceTag(m.t);
+            return (
+              <div key={i} className="rounded-lg border border-border p-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${tag.c}`}>{tag.l}</span>
+                    <span className="text-sm font-medium">{m.t}</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{m.d}</span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded bg-secondary">{m.g} g</span>
+                  <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">{m.kcal} kcal</span>
+                  <span className="px-1.5 py-0.5 rounded bg-warning/10 text-[oklch(0.5_0.13_75)]">碳水 {m.carb}g</span>
+                  <span className="px-1.5 py-0.5 rounded bg-success/10 text-success">蛋白 {m.protein}g</span>
+                  <span className="px-1.5 py-0.5 rounded bg-danger/10 text-danger">脂肪 {m.fat}g</span>
+                  <span className="px-1.5 py-0.5 rounded bg-secondary">{m.type}</span>
+                </div>
               </div>
-              <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
-                <span className="px-1.5 py-0.5 rounded bg-secondary">{m.g} g</span>
-                <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">{m.kcal} kcal</span>
-                <span className="px-1.5 py-0.5 rounded bg-warning/10 text-[oklch(0.5_0.13_75)]">碳水 {m.carb}g</span>
-                <span className="px-1.5 py-0.5 rounded bg-success/10 text-success">蛋白 {m.protein}g</span>
-                <span className="px-1.5 py-0.5 rounded bg-danger/10 text-danger">脂肪 {m.fat}g</span>
-                <span className="px-1.5 py-0.5 rounded bg-secondary">{m.type}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </Section>
+      </AccordionSection>
 
-      <Section title="饮食来源 · 居家 vs 驿站">
-        <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs mb-3">
-          {(["home","station"] as const).map(d => (
-            <button key={d} onClick={() => setDiet(d)}
-              className={`flex-1 py-1.5 rounded-lg ${diet===d?"bg-card shadow-sm font-medium":"text-muted-foreground"}`}>
-              {d === "home" ? "居家饮食（居家 + 外食）" : "驿站饮食"}
-            </button>
-          ))}
-        </div>
-        <div className="space-y-1.5">
-          {dietList.map((m,i)=>(
-            <div key={i} className="flex items-center justify-between text-xs py-1">
-              <div className="flex-1 min-w-0 truncate">{m.t}</div>
-              <span className="text-muted-foreground ml-2">{m.kcal} kcal</span>
-            </div>
-          ))}
-          {dietList.length === 0 && <div className="text-xs text-muted-foreground py-3 text-center">暂无记录</div>}
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-lg bg-primary/5 border border-primary/20 p-2">
-            <div className="text-[10px] text-muted-foreground">居家+外食占比</div>
-            <div className="text-base font-semibold text-primary">62%</div>
-          </div>
-          <div className="rounded-lg bg-success/5 border border-success/20 p-2">
-            <div className="text-[10px] text-muted-foreground">驿站餐占比</div>
-            <div className="text-base font-semibold text-success">38%</div>
-          </div>
-        </div>
-      </Section>
-
-      <Section title="驿站测试数据">
+      <AccordionSection title="驿站测试数据" count={tests.length}>
         <div className="space-y-1.5">
           {tests.map((t,i)=>(
             <div key={i} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0">
@@ -3356,9 +3467,9 @@ function StationTab() {
             </div>
           ))}
         </div>
-      </Section>
+      </AccordionSection>
 
-      <Section title="线下活动 / 赛事">
+      <AccordionSection title="线下活动 / 赛事" count={events.length}>
         <div className="space-y-2">
           {events.map((e,i)=>(
             <div key={i} className="rounded-xl border border-border p-3">
@@ -3375,8 +3486,8 @@ function StationTab() {
             </div>
           ))}
         </div>
-      </Section>
-    </>
+      </AccordionSection>
+    </div>
   );
 }
 
