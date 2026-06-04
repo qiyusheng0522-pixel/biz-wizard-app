@@ -475,10 +475,28 @@ function FocusCarousel({ push }: { push: (s: Stack) => void }) {
 /* ============================================================
  * Tab 2：客户列表
  * ============================================================ */
-function MClient({ push }: { push: (s: Stack) => void }) {
+function MClient({ push, preset, onPresetApplied }: {
+  push: (s: Stack) => void;
+  preset?: { layer?: CustomerLayer; tier?: string; risk?: RiskLevel; source?: string } | null;
+  onPresetApplied?: () => void;
+}) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "urgent" | "abnormal" | "stable" | "new" | "churnRisk">("all");
   const [showAdv, setShowAdv] = useState(false);
+  // 用户等级 / 风险等级 / 来源 快捷筛选
+  const [tierF, setTierF] = useState<"all" | "普通" | "VIP" | "VVIP" | "特别关注">("all");
+  const [riskF, setRiskF] = useState<"all" | RiskLevel>("all");
+  const [srcF,  setSrcF]  = useState<"all" | "鼓e佳" | "骨安" | "院端转介">("all");
+  // 接收来自"我的-在管患者"的预设跳转
+  useEffect(() => {
+    if (!preset) return;
+    if (preset.layer) setFilter(preset.layer);
+    if (preset.tier)  setTierF(preset.tier as typeof tierF);
+    if (preset.risk)  setRiskF(preset.risk);
+    if (preset.source) setSrcF(preset.source as typeof srcF);
+    onPresetApplied?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preset]);
   // 多条件筛选：病种 / 年龄段 / 服务包 / 状态
   const [adv, setAdv] = useState<{ disease: string[]; ageRange: string; pkg: string[]; status: string[] }>({
     disease: [], ageRange: "all", pkg: [], status: [],
@@ -499,7 +517,10 @@ function MClient({ push }: { push: (s: Stack) => void }) {
     (adv.disease.length === 0 || adv.disease.some(d => c.diseases.includes(d))) &&
     ageMatch(c.age) &&
     (adv.pkg.length === 0 || adv.pkg.some(p => c.package.includes(p))) &&
-    (adv.status.length === 0 || adv.status.includes(c.layer))
+    (adv.status.length === 0 || adv.status.includes(c.layer)) &&
+    (tierF === "all" || tierOf(c.id) === tierF) &&
+    (riskF === "all" || riskOf(c.layer) === riskF) &&
+    (srcF  === "all" || sourceOf(c.id) === srcF)
   );
   const advCount =
     adv.disease.length + (adv.ageRange !== "all" ? 1 : 0) + adv.pkg.length + adv.status.length;
