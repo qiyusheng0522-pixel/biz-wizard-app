@@ -3268,24 +3268,16 @@ function FilterChip({ children, active, onClick }: { children: React.ReactNode; 
  * 驿站 Tab — 患者在线下驿站的服务/活动/饮食
  * ============================================================ */
 function StationTab() {
-  const [diet, setDiet] = useState<"home" | "station">("home");
-  const checkups = [
-    { d: "2026/04/12", t: "季度体检", station: "浦东世纪驿站", abnormal: ["LDL 3.6 ↑", "尿酸 482 ↑"] },
-    { d: "2026/01/08", t: "年度体检", station: "浦东世纪驿站", abnormal: ["空腹血糖 7.8 ↑"] },
-  ];
-  const prints = [
-    { d: "2026/05/02", t: "5 月健康方案 · 控糖版", pages: 6, by: "林姐" },
-    { d: "2026/04/05", t: "运动处方 · 中等强度",   pages: 2, by: "周教练" },
-  ];
   // 营养餐 — 用餐记录
   const meals = [
     { d: "今日 12:10", t: "燕麦鸡胸藜麦碗（驿站）", g: 380, kcal: 520, carb: 58, protein: 32, fat: 14, type: "蛋白质为主" },
     { d: "昨日 18:30", t: "杂粮饭 + 清蒸鲈鱼（外食）", g: 420, kcal: 610, carb: 70, protein: 36, fat: 18, type: "碳水为主" },
     { d: "昨日 12:00", t: "西芹百合炒虾仁（居家）",   g: 320, kcal: 410, carb: 22, protein: 28, fat: 22, type: "脂肪偏高" },
   ];
-  // 居家饮食 vs 驿站饮食
-  const homeMeals = meals.filter(m => m.t.includes("居家") || m.t.includes("外食"));
-  const stationMeals = meals.filter(m => m.t.includes("驿站"));
+  const sourceTag = (t: string) =>
+    t.includes("驿站") ? { l: "驿站", c: "bg-success/10 text-success" } :
+    t.includes("外食") ? { l: "外食", c: "bg-warning/10 text-[oklch(0.5_0.13_75)]" } :
+                        { l: "居家", c: "bg-primary/10 text-primary" };
   const tests = [
     { d: "今日 09:12", t: "驿站快测血糖（空腹）", v: "6.4 mmol/L", ok: true },
     { d: "昨日 17:40", t: "驿站血压",             v: "138/86 mmHg", ok: false },
@@ -3297,99 +3289,41 @@ function StationTab() {
     { d: "4/20", t: "糖友烹饪比赛",           role: "选手",   rank: "二等奖 🥈",            station: "浦东世纪驿站" },
     { d: "3/15", t: "春日太极养生课",         role: "学员",   rank: "完课 · 出勤 100%",      station: "徐汇衡山驿站" },
   ];
-  const dietList = diet === "home" ? homeMeals : stationMeals;
   return (
-    <>
-      <Section title="驿站体检记录">
-        <div className="space-y-2">
-          {checkups.map((c, i) => (
-            <button key={i} onClick={() => toast.info(`已打开 ${c.t} 报告`)}
-              className="w-full rounded-xl border border-border p-3 text-left active:bg-secondary">
-              <div className="flex items-center gap-2">
-                <span className="text-[11px] text-muted-foreground">{c.d}</span>
-                <span className="text-sm font-medium">{c.t}</span>
-                <span className="ml-auto text-[10px] text-muted-foreground">{c.station}</span>
-              </div>
-              <div className="mt-1.5 flex flex-wrap gap-1">
-                {c.abnormal.map(a => <span key={a} className="text-[10px] px-1.5 py-0.5 rounded bg-danger/10 text-danger">{a}</span>)}
-              </div>
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="健康方案打印记录">
-        <div className="space-y-1.5">
-          {prints.map((p, i) => (
-            <div key={i} className="flex items-center gap-2 py-1.5">
-              <FileText className="w-4 h-4 text-primary" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm">{p.t}</div>
-                <div className="text-[10px] text-muted-foreground">{p.d} · {p.pages} 页 · 由 {p.by} 打印</div>
-              </div>
-              <button onClick={() => toast.success("已重新发送至驿站打印")} className="text-[11px] text-primary">重打</button>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="营养餐 · 用餐记录">
+    <div className="space-y-2.5">
+      <AccordionSection title="营养餐 · 用餐记录" count={meals.length} defaultOpen>
         <div className="grid grid-cols-3 gap-2 mb-3 text-center">
           <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold">1540</div><div className="text-[10px] text-muted-foreground">今日 kcal</div></div>
           <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold text-primary">42%</div><div className="text-[10px] text-muted-foreground">碳水占比</div></div>
           <div className="rounded-lg bg-secondary p-2"><div className="text-base font-semibold text-success">达标</div><div className="text-[10px] text-muted-foreground">三大营养素</div></div>
         </div>
         <div className="space-y-2">
-          {meals.map((m, i) => (
-            <div key={i} className="rounded-lg border border-border p-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">{m.t}</span>
-                <span className="text-[11px] text-muted-foreground">{m.d}</span>
+          {meals.map((m, i) => {
+            const tag = sourceTag(m.t);
+            return (
+              <div key={i} className="rounded-lg border border-border p-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${tag.c}`}>{tag.l}</span>
+                    <span className="text-sm font-medium">{m.t}</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">{m.d}</span>
+                </div>
+                <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded bg-secondary">{m.g} g</span>
+                  <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">{m.kcal} kcal</span>
+                  <span className="px-1.5 py-0.5 rounded bg-warning/10 text-[oklch(0.5_0.13_75)]">碳水 {m.carb}g</span>
+                  <span className="px-1.5 py-0.5 rounded bg-success/10 text-success">蛋白 {m.protein}g</span>
+                  <span className="px-1.5 py-0.5 rounded bg-danger/10 text-danger">脂肪 {m.fat}g</span>
+                  <span className="px-1.5 py-0.5 rounded bg-secondary">{m.type}</span>
+                </div>
               </div>
-              <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
-                <span className="px-1.5 py-0.5 rounded bg-secondary">{m.g} g</span>
-                <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary">{m.kcal} kcal</span>
-                <span className="px-1.5 py-0.5 rounded bg-warning/10 text-[oklch(0.5_0.13_75)]">碳水 {m.carb}g</span>
-                <span className="px-1.5 py-0.5 rounded bg-success/10 text-success">蛋白 {m.protein}g</span>
-                <span className="px-1.5 py-0.5 rounded bg-danger/10 text-danger">脂肪 {m.fat}g</span>
-                <span className="px-1.5 py-0.5 rounded bg-secondary">{m.type}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </Section>
+      </AccordionSection>
 
-      <Section title="饮食来源 · 居家 vs 驿站">
-        <div className="flex gap-1 bg-secondary p-1 rounded-xl text-xs mb-3">
-          {(["home","station"] as const).map(d => (
-            <button key={d} onClick={() => setDiet(d)}
-              className={`flex-1 py-1.5 rounded-lg ${diet===d?"bg-card shadow-sm font-medium":"text-muted-foreground"}`}>
-              {d === "home" ? "居家饮食（居家 + 外食）" : "驿站饮食"}
-            </button>
-          ))}
-        </div>
-        <div className="space-y-1.5">
-          {dietList.map((m,i)=>(
-            <div key={i} className="flex items-center justify-between text-xs py-1">
-              <div className="flex-1 min-w-0 truncate">{m.t}</div>
-              <span className="text-muted-foreground ml-2">{m.kcal} kcal</span>
-            </div>
-          ))}
-          {dietList.length === 0 && <div className="text-xs text-muted-foreground py-3 text-center">暂无记录</div>}
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-center">
-          <div className="rounded-lg bg-primary/5 border border-primary/20 p-2">
-            <div className="text-[10px] text-muted-foreground">居家+外食占比</div>
-            <div className="text-base font-semibold text-primary">62%</div>
-          </div>
-          <div className="rounded-lg bg-success/5 border border-success/20 p-2">
-            <div className="text-[10px] text-muted-foreground">驿站餐占比</div>
-            <div className="text-base font-semibold text-success">38%</div>
-          </div>
-        </div>
-      </Section>
-
-      <Section title="驿站测试数据">
+      <AccordionSection title="驿站测试数据" count={tests.length}>
         <div className="space-y-1.5">
           {tests.map((t,i)=>(
             <div key={i} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0">
@@ -3402,9 +3336,9 @@ function StationTab() {
             </div>
           ))}
         </div>
-      </Section>
+      </AccordionSection>
 
-      <Section title="线下活动 / 赛事">
+      <AccordionSection title="线下活动 / 赛事" count={events.length}>
         <div className="space-y-2">
           {events.map((e,i)=>(
             <div key={i} className="rounded-xl border border-border p-3">
@@ -3421,8 +3355,8 @@ function StationTab() {
             </div>
           ))}
         </div>
-      </Section>
-    </>
+      </AccordionSection>
+    </div>
   );
 }
 
