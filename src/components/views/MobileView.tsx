@@ -1280,6 +1280,15 @@ function CommunicationTimeline() {
                         <pre className="text-[11px] leading-relaxed whitespace-pre-wrap font-sans text-foreground">{e.raw.body}</pre>
                       )}
                       <div className="text-[10px] text-muted-foreground mt-1.5 italic">{e.raw.body.startsWith("[") ? "" : "原始记录"}</div>
+                      {/* 本次沟通 AI 摘要 + 生成待办 */}
+                      <div className="mt-2 rounded-lg bg-card border border-primary/20 p-2">
+                        <div className="text-[10px] text-primary flex items-center gap-1 mb-1"><Sparkles className="w-3 h-3" />本次沟通 AI 总结</div>
+                        <div className="text-[11px] leading-relaxed">{e.sum}。建议后续动作：{e.mood === "负向" ? "24h 内回访 + 情绪关怀" : e.warm ? "维持节奏，3 天后复测" : "推送相关宣教，1 周后跟进"}。</div>
+                        <div className="flex gap-1.5 mt-2">
+                          <button onClick={() => toast.success("已生成待办：" + e.sum)} className="text-[10px] px-2 py-1 rounded bg-primary text-primary-foreground flex items-center gap-1"><ClipboardList className="w-3 h-3" />生成待办</button>
+                          <button onClick={() => toast.info("打开完整聊天上下文")} className="text-[10px] px-2 py-1 rounded bg-secondary flex items-center gap-1"><MessageSquare className="w-3 h-3" />查看上下文</button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
