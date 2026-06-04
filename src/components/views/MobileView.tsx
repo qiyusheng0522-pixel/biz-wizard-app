@@ -814,7 +814,10 @@ function MIM({ push }: { push: (s: Stack) => void }) {
 /* ============================================================
  * Tab 4：我的
  * ============================================================ */
-function MMe({ push }: { push: (s: Stack) => void }) {
+function MMe({ push, goClient }: {
+  push: (s: Stack) => void;
+  goClient: (preset?: { layer?: CustomerLayer; tier?: string; risk?: RiskLevel; source?: string; toast?: string } | null) => void;
+}) {
   // 服务时间段筛选
   const [range, setRange] = useState<"7" | "30" | "90">("30");
   // 在管客户分层（演示数据）
@@ -925,17 +928,21 @@ function MMe({ push }: { push: (s: Stack) => void }) {
       <Section title="服务经营指标 · 近 30 天">
         <div className="grid grid-cols-2 gap-2">
           {kpis.map(k => (
-            <button key={k.l} onClick={() => toast.info(`${k.l} 计算口径`, { description: k.tip, duration: 5000 })}
-              className="rounded-xl bg-card border border-border p-3 text-left active:bg-secondary">
+            <div key={k.l} className="rounded-xl bg-card border border-border p-3">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground">{k.l}</span>
-                <AlertCircle className="w-3 h-3 text-muted-foreground" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); toast.info(`${k.l} 计算口径`, { description: k.tip, duration: 6000 }); }}
+                  className="p-0.5 rounded active:bg-secondary"
+                  aria-label={`${k.l} 说明`}
+                >
+                  <AlertCircle className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
               </div>
               <div className={`text-xl font-semibold mt-1 ${
                 k.tone === "success" ? "text-success" : k.tone === "danger" ? "text-danger" : "text-primary"
               }`}>{k.v}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{k.tip}</div>
-            </button>
+            </div>
           ))}
         </div>
       </Section>
@@ -944,31 +951,44 @@ function MMe({ push }: { push: (s: Stack) => void }) {
       <Section title={`在管患者 · 共 ${totalManage} 位`}>
         {/* 分层 */}
         <div className="space-y-2">
-          {layerDist.map(l => (
-            <div key={l.k}>
-              <div className="flex justify-between text-xs mb-1"><span>{l.k}</span><span className="text-muted-foreground">{l.v} 位</span></div>
-              <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                <div className={`h-full ${l.c}`} style={{ width: `${(l.v/totalManage)*100}%` }} />
-              </div>
-            </div>
-          ))}
+          {layerDist.map(l => {
+            const presetFor = (k: string): Parameters<typeof goClient>[0] => {
+              if (k === "活跃服务中") return { layer: "stable", toast: `查看 ${k} 的 ${l.v} 位客户` };
+              if (k === "新签待激活") return { layer: "new",    toast: `查看 ${k} 的 ${l.v} 位客户` };
+              if (k === "续费窗口期") return { layer: "churnRisk", toast: `查看 ${k} 的 ${l.v} 位客户` };
+              return { risk: "高风险", toast: `查看 ${k} 的 ${l.v} 位客户` };
+            };
+            return (
+              <button key={l.k} onClick={() => goClient(presetFor(l.k))}
+                className="w-full text-left active:opacity-70">
+                <div className="flex justify-between text-xs mb-1">
+                  <span>{l.k}</span>
+                  <span className="text-muted-foreground">{l.v} 位 <ChevronRight className="inline w-3 h-3 -mt-0.5" /></span>
+                </div>
+                <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                  <div className={`h-full ${l.c}`} style={{ width: `${(l.v/totalManage)*100}%` }} />
+                </div>
+              </button>
+            );
+          })}
         </div>
         {/* 服务周期范围 */}
         <div className="mt-4">
-          <div className="text-[11px] text-muted-foreground mb-2">服务周期分布</div>
+          <div className="text-[11px] text-muted-foreground mb-2">服务周期分布 · 点击查看患者</div>
           <div className="flex items-end h-20 gap-1.5">
             {cycleDist.map(c => (
-              <div key={c.l} className="flex-1 flex flex-col items-center gap-1">
+              <button key={c.l} onClick={() => goClient({ toast: `已筛选「${c.l}」服务周期共 ${c.v} 位客户` })}
+                className="flex-1 flex flex-col items-center gap-1 active:opacity-70">
                 <div className="w-full rounded-t bg-[image:var(--gradient-primary)]" style={{ height: `${(c.v/Math.max(...cycleDist.map(x=>x.v)))*100}%` }} />
                 <span className="text-[9px] text-muted-foreground text-center leading-tight">{c.l}</span>
                 <span className="text-[10px] font-medium">{c.v}</span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
         {/* 用户阶段 */}
         <div className="mt-4">
-          <div className="text-[11px] text-muted-foreground mb-2">客户阶段</div>
+          <div className="text-[11px] text-muted-foreground mb-2">客户阶段 · 点击查看患者</div>
           <div className="flex items-center gap-1">
             {[
               { l: "导入期", v: 10, c: "bg-primary/40" },
@@ -977,10 +997,11 @@ function MMe({ push }: { push: (s: Stack) => void }) {
               { l: "维护期", v: 12, c: "bg-success" },
               { l: "流失期", v: 4,  c: "bg-danger" },
             ].map(s => (
-              <div key={s.l} className="flex-1">
+              <button key={s.l} onClick={() => goClient({ toast: `已筛选「${s.l}」客户 ${s.v} 位` })}
+                className="flex-1 active:opacity-70">
                 <div className={`h-6 rounded ${s.c} flex items-center justify-center text-[10px] text-white font-medium`}>{s.v}</div>
                 <div className="text-[9px] text-center text-muted-foreground mt-1">{s.l}</div>
-              </div>
+              </button>
             ))}
           </div>
         </div>
