@@ -380,11 +380,20 @@ function FocusCarousel({ push }: { push: (s: Stack) => void }) {
               <div className="w-9 h-9 rounded-full bg-card flex items-center justify-center text-sm font-medium">{c.name[0]}</div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-semibold truncate">{c.name} <span className="text-[10px] text-muted-foreground font-normal">{c.gender}·{c.age}</span></div>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded ${tone.chip}`}>{layerMeta[c.layer].label}</span>
+                <div className="flex items-center gap-1 mt-0.5">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${tone.chip}`}>{layerMeta[c.layer].label}</span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded border ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
+                </div>
               </div>
               <button onClick={() => flip(c.id)} className="p-1 rounded-md bg-card/80 active:bg-card"><RotateCw className="w-3.5 h-3.5 text-muted-foreground" /></button>
             </div>
             <div className="mt-2 text-xs leading-relaxed text-foreground line-clamp-2">{summary}</div>
+            {c.layer === "urgent" && (
+              <div className="mt-2 rounded-lg bg-danger/10 border border-danger/30 px-2 py-1.5 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-danger" />
+                <span className="text-[10px] text-danger font-medium">系统已自动干预 · 应急话术+联系家属已触发</span>
+              </div>
+            )}
             <div className="mt-2 rounded-lg bg-card/80 border border-border p-2">
               <div className="text-[10px] text-muted-foreground flex items-center gap-1"><Sparkles className="w-3 h-3 text-primary" />建议动作</div>
               <div className="text-[11px] mt-0.5 font-medium">{action}</div>
