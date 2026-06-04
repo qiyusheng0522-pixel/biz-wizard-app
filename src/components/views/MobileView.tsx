@@ -87,6 +87,7 @@ export function MobileView() {
         {top.name === "care"          && <CareEffect pop={pop} />}
         {top.name === "stats"         && <TaskStats pop={pop} />}
         {top.name === "scripts"       && <ScriptLibrary pop={pop} />}
+        {top.name === "newScript"     && <NewScript pop={pop} />}
         {top.name === "mdt"           && <MdtRecords pop={pop} />}
         {top.name === "settings"      && <SettingsScreen pop={pop} />}
         {top.name === "profile"       && <ProfileEdit pop={pop} />}
