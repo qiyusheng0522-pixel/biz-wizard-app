@@ -387,7 +387,7 @@ function FocusCarousel({ push }: { push: (s: Stack) => void }) {
               <div className="text-[11px] mt-0.5 italic text-muted-foreground line-clamp-2">{script}</div>
             </div>
             <div className="mt-2 grid grid-cols-4 gap-1.5">
-              <button onClick={() => toast.success(`正在拨打 ${c.name}`)} className="py-1.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Phone className="w-3.5 h-3.5" /></button>
+              <button onClick={() => placeCall(c.name)} className="py-1.5 rounded-lg bg-primary text-primary-foreground flex items-center justify-center"><Phone className="w-3.5 h-3.5" /></button>
               <button onClick={() => toast.info("视频邀请已发送")} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><Video className="w-3.5 h-3.5" /></button>
               <button onClick={() => toast.info("按住说话…")} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><Mic className="w-3.5 h-3.5" /></button>
               <button onClick={() => push({ name: "customer", id: c.id })} className="py-1.5 rounded-lg bg-card border border-border flex items-center justify-center"><FileText className="w-3.5 h-3.5" /></button>
@@ -829,7 +829,7 @@ function TaskDetail({
         )}
 
         <div className="grid grid-cols-3 gap-2">
-          <ActionTile icon={Phone} label="电话" onClick={() => toast.success(`正在拨打 ${t.customer}`)} />
+          <ActionTile icon={Phone} label="电话" onClick={() => placeCall(t.customer)} />
           <ActionTile icon={MessageSquare} label="发消息" onClick={() => toast.info("已打开 IM 草稿")} />
           <ActionTile icon={Video} label="视频" onClick={() => toast.info("视频通话邀请已发送")} />
         </div>
@@ -901,7 +901,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             </button>
           </div>
           <div className="grid grid-cols-4 gap-2 mt-3">
-            <ActionTile dark icon={Phone} label="电话" onClick={() => toast.success(`正在拨打 ${c.name}`)} />
+            <ActionTile dark icon={Phone} label="电话" onClick={() => placeCall(c.name)} />
             <ActionTile dark icon={MessageSquare} label="IM" onClick={() => push({ name: "chat", id: c.id })} />
             <ActionTile dark icon={Video} label="视频" onClick={() => toast.info("视频邀请已发送")} />
             <ActionTile dark icon={Calendar} label="预约" onClick={() => toast.success("预约已发起")} />
@@ -1108,7 +1108,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             </div>
             <div className="grid grid-cols-4 gap-1">
               {[
-                { i: Phone, c: "primary",   tip: "电话",   on: () => toast.success(`正在拨打 ${c.name}`) },
+                { i: Phone, c: "primary",   tip: "电话",   on: () => placeCall(c.name) },
                 { i: Video, c: "secondary", tip: "视频",   on: () => toast.info("视频邀请已发送") },
                 { i: Mic,   c: "secondary", tip: "语音",   on: () => toast.info("按住说话…") },
                 { i: MessageSquare, c: "secondary", tip: "IM", on: () => push({ name: "chat", id: c.id }) },
@@ -1423,7 +1423,7 @@ function FamilyView({ selfName, selfAge }: { selfName: string; selfAge: number }
               </div>
             )}
             <div className="mt-3 flex gap-2">
-              <button onClick={() => toast.success(`正在拨打 ${picked.name}`)} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm flex items-center justify-center gap-1.5"><Phone className="w-4 h-4" />联系</button>
+              <button onClick={() => placeCall(picked.name)} className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm flex items-center justify-center gap-1.5"><Phone className="w-4 h-4" />联系</button>
               <button onClick={() => toast.info(picked.isQt ? "已发送家庭关怀任务" : "邀请短信已发送")} className="flex-1 py-2.5 rounded-xl bg-secondary text-sm">{picked.isQt ? "发起协同" : "邀请加入"}</button>
             </div>
           </div>
@@ -1873,7 +1873,7 @@ function ProfilePeek({ c, onClose }: { c: Customer; onClose: () => void }) {
         </div>
         <div className="mt-3 text-xs text-muted-foreground leading-relaxed">{c.note}</div>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button onClick={() => { onClose(); toast.success(`正在拨打 ${c.name}`); }} className="py-2.5 rounded-lg bg-primary text-primary-foreground text-sm">立即电话</button>
+          <button onClick={() => { onClose(); placeCall(c.name); }} className="py-2.5 rounded-lg bg-primary text-primary-foreground text-sm">立即电话</button>
           <button onClick={onClose} className="py-2.5 rounded-lg bg-secondary text-sm">关闭</button>
         </div>
       </div>
