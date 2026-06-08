@@ -1247,11 +1247,14 @@ function MMe({ push, goClient }: {
  * 详情：任务
  * ============================================================ */
 function TaskDetail({
-  id, pop, taskState, toggleTask,
-}: { id: string; pop: () => void; taskState: Record<string, boolean>; toggleTask: (id: string) => void }) {
+  id, pop, push, taskState, toggleTask,
+}: { id: string; pop: () => void; push: (s: Stack) => void; taskState: Record<string, boolean>; toggleTask: (id: string) => void }) {
   const t = tasks.find(x => x.id === id) as Task;
   const c = customers.find(x => x.name === t.customer);
   const done = taskState[id];
+  const isEscort = (t as { tag?: string }).tag === "陪诊任务" || /陪诊/.test(t.title);
+  const brief = isEscort ? getEscortBrief(t.customer) : null;
+  const records = isEscort ? (ESCORT_RECORDS[t.customer] ?? []) : [];
   return (
     <div>
       <PageHeader title="任务详情" pop={pop} />
@@ -1273,17 +1276,101 @@ function TaskDetail({
           </div>
         </div>
 
-        <Section title="AI 推荐处置">
+        {isEscort && brief && (
+          <>
+            <Section title="陪诊行程">
+              <div className="space-y-2 text-sm">
+                <InfoRow label="医院 / 科室" value={`${brief.hospital} · ${brief.dept}`} />
+                <InfoRow label="就诊医生" value={brief.doctor} />
+                <InfoRow label="时间" value={brief.date} />
+                <InfoRow label="集合地点" value={brief.meet} />
+                <InfoRow label="交通" value={brief.transport} />
+                <InfoRow label="就诊事由" value={brief.reason} />
+              </div>
+            </Section>
+
+            <Section title="患者基础情况">
+              <div className="space-y-2">
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">当前症状</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {brief.symptoms.map(s => <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-warning/10 text-[oklch(0.5_0.13_75)] border border-warning/20">{s}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">既往情况</div>
+                  <ul className="text-[12px] text-foreground/90 space-y-0.5 list-disc pl-4">
+                    {brief.history.map(h => <li key={h}>{h}</li>)}
+                  </ul>
+                </div>
+              </div>
+            </Section>
+
+            <Section title="出行准备清单">
+              <ul className="text-sm space-y-1.5">
+                {brief.prep.map(p => (
+                  <li key={p} className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" /><span>{p}</span></li>
+                ))}
+              </ul>
+            </Section>
+
+            <Section title="陪诊注意事项">
+              <ul className="text-sm space-y-1.5">
+                {brief.attentions.map((a, i) => (
+                  <li key={a} className="flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-danger/10 text-danger text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                    <span className="text-foreground/90 leading-relaxed">{a}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+
+            {records.length > 0 && (
+              <Section title="历史陪诊记录" right={
+                <button onClick={() => c && push({ name: "customer", id: c.id, initialTab: "escort" })}
+                  className="text-[11px] text-primary">查看全部 →</button>
+              }>
+                <div className="space-y-2">
+                  {records.slice(0, 2).map(r => (
+                    <button key={r.id} onClick={() => c && push({ name: "customer", id: c.id, initialTab: "escort" })}
+                      className="w-full text-left rounded-lg border border-border p-2.5 active:bg-secondary">
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="text-muted-foreground">{r.date}</span>
+                        <span className="ml-auto px-1.5 py-0.5 rounded bg-secondary text-foreground">{r.status}</span>
+                      </div>
+                      <div className="mt-1 text-[12px] font-medium">{r.hospital} · {r.dept}</div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2">诊断：{r.diagnosis}</div>
+                    </button>
+                  ))}
+                </div>
+              </Section>
+            )}
+          </>
+        )}
+
+        <Section title={isEscort ? "AI 陪诊建议" : "AI 推荐处置"}>
           <ol className="list-decimal pl-5 space-y-1.5 text-sm text-foreground">
-            <li>核对客户最近 24h 监测数据与症状描述</li>
-            <li>调取责任医师的随访方案与禁忌</li>
-            <li>使用「{t.type}」推荐话术 1～2 条进行触达</li>
-            <li>30 分钟内回填触达结果与客户反馈</li>
+            {isEscort ? (
+              <>
+                <li>出发前 1h 电话确认患者身体状况与禁食情况</li>
+                <li>到院后第一时间挂号取号，预估排队时长同步家属群</li>
+                <li>就诊全程录音 / 笔记，重点记录诊断、检查、用药</li>
+                <li>取药 / 缴费 / 检查预约同步完成，避免多次往返</li>
+                <li>诊后立即归档，生成后续上门 / 复测 / 复诊待办</li>
+              </>
+            ) : (
+              <>
+                <li>核对客户最近 24h 监测数据与症状描述</li>
+                <li>调取责任医师的随访方案与禁忌</li>
+                <li>使用「{t.type}」推荐话术 1～2 条进行触达</li>
+                <li>30 分钟内回填触达结果与客户反馈</li>
+              </>
+            )}
           </ol>
         </Section>
 
         {c && (
-          <button onClick={pop /* parent will keep stack */}
+          <button onClick={() => push({ name: "customer", id: c.id, initialTab: isEscort ? "escort" : "basic" })}
             className="w-full rounded-xl bg-card border border-border p-3 flex items-center gap-3 active:bg-secondary text-left">
             <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-medium">{c.name[0]}</div>
             <div className="flex-1 min-w-0">
@@ -1300,6 +1387,12 @@ function TaskDetail({
           <ActionTile icon={Video} label="视频" onClick={() => toast.info("视频通话邀请已发送")} />
         </div>
 
+        {isEscort && (
+          <button onClick={() => { toast.success("已存档陪诊结果，已生成后续待办"); toggleTask(id); }}
+            className="w-full py-3 rounded-xl bg-card border border-dashed border-primary/40 text-primary text-sm flex items-center justify-center gap-1.5">
+            <ClipboardList className="w-4 h-4" />存档诊断 / 检查 / 用药 · 生成跟踪待办
+          </button>
+        )}
         <button onClick={() => { toggleTask(id); }}
           className={`w-full py-3.5 rounded-xl font-medium text-sm transition ${
             done ? "bg-secondary text-foreground" : "bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[var(--shadow-soft)]"
