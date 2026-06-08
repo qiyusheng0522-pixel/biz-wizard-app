@@ -1373,7 +1373,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
         )}
 
         {/* ===== 沟通历史（CM-C 组）===== */}
-        {tab === "history" && <CommunicationTimeline />}
+        {tab === "history" && <CommunicationTimeline cid={c.id} push={push} />}
 
         {tab === "family" && <FamilyView selfName={c.name} selfAge={c.age} />}
         {tab === "station" && <StationTab />}
