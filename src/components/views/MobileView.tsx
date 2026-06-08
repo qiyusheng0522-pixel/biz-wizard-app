@@ -3821,7 +3821,7 @@ function StationTab() {
         </div>
       </AccordionSection>
 
-      <AccordionSection title="驿站测试数据" count={tests.length}>
+      <AccordionSection title="驿站监测数据" count={tests.length}>
         <div className="space-y-1.5">
           {tests.map((t,i)=>(
             <div key={i} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0">
