@@ -3838,9 +3838,6 @@ function FilterChip({ children, active, onClick }: { children: React.ReactNode; 
  * 驿站 Tab — 患者在线下驿站的服务/活动/饮食
  * ============================================================ */
 function StationTab() {
-  return <StationTabImpl />;
-}
-function StationTabImpl() {
   // 营养餐 — 用餐记录
   const meals = [
     { d: "今日 12:10", t: "燕麦鸡胸藜麦碗（驿站）", g: 380, kcal: 520, carb: 58, protein: 32, fat: 14, type: "蛋白质为主" },
