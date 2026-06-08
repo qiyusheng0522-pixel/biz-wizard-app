@@ -1410,9 +1410,9 @@ function TaskDetail({
  *  · 基本信息 / 健康档案 / 数据趋势(30/90/自定义) / 服务包
  *  · 生活偏好 / 家庭结构 / 沟通偏好 / 沟通历史 / 变化雷达 / 备注
  * ============================================================ */
-function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
+function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => void; push: (s: Stack) => void; initialTab?: "basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med" | "escort" }) {
   const c = customers.find(x => x.id === id) as Customer;
-  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med">("basic");
+  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med" | "escort">(initialTab ?? "basic");
   // 进入患者详情先弹窗展示一段简介
   const [showIntro, setShowIntro] = useState(true);
   const [trendRange, setTrendRange] = useState<"30" | "90" | "custom">("30");
@@ -1479,6 +1479,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             { id: "report",  l: "报告" },
             { id: "inquiry", l: "问诊" },
             { id: "med",     l: "用药" },
+            { id: "escort",  l: "陪诊" },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
               className={`flex-1 py-1.5 rounded-lg whitespace-nowrap ${tab === t.id ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
@@ -1655,6 +1656,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
         {tab === "report" && <ReportTab />}
         {tab === "inquiry" && <InquiryTab />}
         {tab === "med" && <MedTab />}
+        {tab === "escort" && <EscortTab name={c.name} push={push} cid={c.id} />}
       </div>
 
       {/* 右侧固定悬浮：今日建议动作 + 快捷沟通 */}
