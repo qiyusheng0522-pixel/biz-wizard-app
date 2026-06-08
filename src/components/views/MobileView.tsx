@@ -64,6 +64,119 @@ const sevTone = (s: Severity) =>
   s === "中"   ? "bg-primary/10 text-primary border-primary/30" :
                  "bg-secondary text-muted-foreground border-border";
 
+/* ---------- 陪诊数据（任务详情 + 客户档案共用） ---------- */
+type EscortRecord = {
+  id: string;
+  date: string;
+  hospital: string;
+  dept: string;
+  doctor: string;
+  reason: string;
+  diagnosis: string;       // 医生诊断结果
+  exam: string;            // 检查结果
+  meds: string;            // 用取药记录
+  followup: string;        // 形成的后续待办 / 跟踪
+  status: "已完成" | "进行中" | "待出发";
+};
+type EscortBrief = {
+  hospital: string;
+  dept: string;
+  date: string;
+  meet: string;             // 集合地点
+  transport: string;        // 交通方式
+  doctor: string;
+  reason: string;
+  symptoms: string[];       // 当前症状
+  history: string[];        // 既往情况
+  prep: string[];           // 出行准备
+  attentions: string[];     // 陪诊注意事项
+};
+// 陪诊任务实时简报（按客户姓名）
+const ESCORT_BRIEFS: Record<string, EscortBrief> = {
+  "王奶奶": {
+    hospital: "上海瑞金医院",
+    dept: "肿瘤内科",
+    date: "明早 09:30 集合 · 10:00 就诊",
+    meet: "门诊楼大厅 1F 服务台前",
+    transport: "驿站专车（沪EH8821）· 司机张师傅 13812345678",
+    doctor: "王立 主任医师（化疗复查）",
+    reason: "化疗第 3 周期后复查 + 调整用药",
+    symptoms: ["近 3 日轻度恶心 2 次", "夜间睡眠欠佳", "食欲较前下降"],
+    history: ["2024-09 乳腺癌术后", "高血压 10 年（缬沙坦 80mg qd）", "对青霉素过敏"],
+    prep: ["医保卡 + 身份证", "近 30 日血常规/肝肾报告", "近 2 周用药清单", "保温杯 + 软质零食", "晕车药 1 板"],
+    attentions: [
+      "禁食禁水 6h（如需抽血复查）",
+      "随身携带紧急联系人卡（女儿张敏 13900001111）",
+      "化疗药副反应观察：呕吐/发热/手足麻木立即上报",
+      "排队 ≥ 30min 协助患者就近休息，避免久站",
+      "诊后第一时间将诊断+处方拍照同步家属群",
+    ],
+  },
+};
+// 历史陪诊明细（按客户姓名）
+const ESCORT_RECORDS: Record<string, EscortRecord[]> = {
+  "王奶奶": [
+    {
+      id: "E-2025-06",
+      date: "2025-06-08 10:00",
+      hospital: "上海瑞金医院",
+      dept: "肿瘤内科",
+      doctor: "王立 主任",
+      reason: "化疗第 3 周期复查",
+      diagnosis: "病情稳定，CA-153 较上次下降 12%，建议维持现方案",
+      exam: "血常规：WBC 3.8（↓）；肝功正常；胸部 CT 未见新发病灶",
+      meds: "继续：紫杉醇 + 卡培他滨；新增：升白针（瑞白）皮下 q3d × 2 次",
+      followup: "已生成待办：6/11、6/14 上门注射升白针；6/15 复测血常规",
+      status: "进行中",
+    },
+    {
+      id: "E-2025-05",
+      date: "2025-05-18 09:30",
+      hospital: "上海瑞金医院",
+      dept: "肿瘤内科",
+      doctor: "王立 主任",
+      reason: "化疗第 2 周期复查",
+      diagnosis: "耐受良好，无 III 级以上不良反应",
+      exam: "血常规正常；心电图窦性心律；BNP 正常",
+      meds: "原方案继续；昂丹司琼 8mg 餐前 30min 备用",
+      followup: "已完成：3 次电话随访 + 1 次上门测压",
+      status: "已完成",
+    },
+  ],
+  "张老爷子": [
+    {
+      id: "E-2025-05-A",
+      date: "2025-05-22 14:00",
+      hospital: "复旦中山医院",
+      dept: "内分泌科",
+      doctor: "李华 副主任",
+      reason: "糖尿病年度评估",
+      diagnosis: "2 型糖尿病控制不佳，建议调整基础胰岛素",
+      exam: "HbA1c 8.4%；尿微量白蛋白 32mg/L（轻度↑）；眼底正常",
+      meds: "停：格列美脲；新增：德谷胰岛素 12U 睡前皮下",
+      followup: "待办：每日空腹血糖回填；2 周后电话复盘剂量",
+      status: "已完成",
+    },
+  ],
+};
+const getEscortBrief = (name: string): EscortBrief => ESCORT_BRIEFS[name] ?? {
+  hospital: "待登记",
+  dept: "—",
+  date: "—",
+  meet: "—",
+  transport: "驿站专车 / 网约车（待确认）",
+  doctor: "—",
+  reason: "—",
+  symptoms: ["—"],
+  history: ["—"],
+  prep: ["医保卡 + 身份证", "近期检查报告", "常用药 1 周量"],
+  attentions: [
+    "提前 15 分钟到达集合点",
+    "全程陪同就诊，禁止患者单独离开",
+    "重要诊断/处方拍照即时上传",
+  ],
+};
+
 // 虚拟号外呼提示（统一封装）
 const placeCall = (name: string) => {
   toast.success(`正在通过虚拟号外呼 ${name}`, {
@@ -88,7 +201,7 @@ const autoIntervene = (name: string) => {
 type Stack =
   | { name: "tabs" }
   | { name: "task"; id: string }
-  | { name: "customer"; id: string }
+  | { name: "customer"; id: string; initialTab?: "basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med" | "escort" }
   | { name: "chat"; id: string }
   | { name: "notifications" }
   | { name: "search" }
@@ -153,8 +266,8 @@ export function MobileView() {
             {tab === "me"     && <MMe push={push} goClient={goClient} />}
           </>
         )}
-        {top.name === "task"          && <TaskDetail id={top.id} pop={pop} taskState={taskState} toggleTask={toggleTask} />}
-        {top.name === "customer"      && <CustomerDetail id={top.id} pop={pop} push={push} />}
+        {top.name === "task"          && <TaskDetail id={top.id} pop={pop} push={push} taskState={taskState} toggleTask={toggleTask} />}
+        {top.name === "customer"      && <CustomerDetail id={top.id} pop={pop} push={push} initialTab={top.initialTab} />}
         {top.name === "chat"          && <ChatScreen id={top.id} pop={pop} nav={push} />}
         {top.name === "notifications" && <Notifications pop={pop} />}
         {top.name === "search"        && <SearchScreen pop={pop} push={push} />}
@@ -1134,11 +1247,14 @@ function MMe({ push, goClient }: {
  * 详情：任务
  * ============================================================ */
 function TaskDetail({
-  id, pop, taskState, toggleTask,
-}: { id: string; pop: () => void; taskState: Record<string, boolean>; toggleTask: (id: string) => void }) {
+  id, pop, push, taskState, toggleTask,
+}: { id: string; pop: () => void; push: (s: Stack) => void; taskState: Record<string, boolean>; toggleTask: (id: string) => void }) {
   const t = tasks.find(x => x.id === id) as Task;
   const c = customers.find(x => x.name === t.customer);
   const done = taskState[id];
+  const isEscort = (t as { tag?: string }).tag === "陪诊任务" || /陪诊/.test(t.title);
+  const brief = isEscort ? getEscortBrief(t.customer) : null;
+  const records = isEscort ? (ESCORT_RECORDS[t.customer] ?? []) : [];
   return (
     <div>
       <PageHeader title="任务详情" pop={pop} />
@@ -1160,17 +1276,101 @@ function TaskDetail({
           </div>
         </div>
 
-        <Section title="AI 推荐处置">
+        {isEscort && brief && (
+          <>
+            <Section title="陪诊行程">
+              <div className="space-y-2 text-sm">
+                <InfoRow label="医院 / 科室" value={`${brief.hospital} · ${brief.dept}`} />
+                <InfoRow label="就诊医生" value={brief.doctor} />
+                <InfoRow label="时间" value={brief.date} />
+                <InfoRow label="集合地点" value={brief.meet} />
+                <InfoRow label="交通" value={brief.transport} />
+                <InfoRow label="就诊事由" value={brief.reason} />
+              </div>
+            </Section>
+
+            <Section title="患者基础情况">
+              <div className="space-y-2">
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">当前症状</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {brief.symptoms.map(s => <span key={s} className="text-[11px] px-2 py-0.5 rounded-full bg-warning/10 text-[oklch(0.5_0.13_75)] border border-warning/20">{s}</span>)}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-muted-foreground mb-1">既往情况</div>
+                  <ul className="text-[12px] text-foreground/90 space-y-0.5 list-disc pl-4">
+                    {brief.history.map(h => <li key={h}>{h}</li>)}
+                  </ul>
+                </div>
+              </div>
+            </Section>
+
+            <Section title="出行准备清单">
+              <ul className="text-sm space-y-1.5">
+                {brief.prep.map(p => (
+                  <li key={p} className="flex items-start gap-2"><CheckCircle2 className="w-3.5 h-3.5 text-success shrink-0 mt-0.5" /><span>{p}</span></li>
+                ))}
+              </ul>
+            </Section>
+
+            <Section title="陪诊注意事项">
+              <ul className="text-sm space-y-1.5">
+                {brief.attentions.map((a, i) => (
+                  <li key={a} className="flex items-start gap-2">
+                    <span className="shrink-0 mt-0.5 w-4 h-4 rounded-full bg-danger/10 text-danger text-[10px] font-bold flex items-center justify-center">{i + 1}</span>
+                    <span className="text-foreground/90 leading-relaxed">{a}</span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+
+            {records.length > 0 && (
+              <Section title="历史陪诊记录" right={
+                <button onClick={() => c && push({ name: "customer", id: c.id, initialTab: "escort" })}
+                  className="text-[11px] text-primary">查看全部 →</button>
+              }>
+                <div className="space-y-2">
+                  {records.slice(0, 2).map(r => (
+                    <button key={r.id} onClick={() => c && push({ name: "customer", id: c.id, initialTab: "escort" })}
+                      className="w-full text-left rounded-lg border border-border p-2.5 active:bg-secondary">
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="text-muted-foreground">{r.date}</span>
+                        <span className="ml-auto px-1.5 py-0.5 rounded bg-secondary text-foreground">{r.status}</span>
+                      </div>
+                      <div className="mt-1 text-[12px] font-medium">{r.hospital} · {r.dept}</div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2">诊断：{r.diagnosis}</div>
+                    </button>
+                  ))}
+                </div>
+              </Section>
+            )}
+          </>
+        )}
+
+        <Section title={isEscort ? "AI 陪诊建议" : "AI 推荐处置"}>
           <ol className="list-decimal pl-5 space-y-1.5 text-sm text-foreground">
-            <li>核对客户最近 24h 监测数据与症状描述</li>
-            <li>调取责任医师的随访方案与禁忌</li>
-            <li>使用「{t.type}」推荐话术 1～2 条进行触达</li>
-            <li>30 分钟内回填触达结果与客户反馈</li>
+            {isEscort ? (
+              <>
+                <li>出发前 1h 电话确认患者身体状况与禁食情况</li>
+                <li>到院后第一时间挂号取号，预估排队时长同步家属群</li>
+                <li>就诊全程录音 / 笔记，重点记录诊断、检查、用药</li>
+                <li>取药 / 缴费 / 检查预约同步完成，避免多次往返</li>
+                <li>诊后立即归档，生成后续上门 / 复测 / 复诊待办</li>
+              </>
+            ) : (
+              <>
+                <li>核对客户最近 24h 监测数据与症状描述</li>
+                <li>调取责任医师的随访方案与禁忌</li>
+                <li>使用「{t.type}」推荐话术 1～2 条进行触达</li>
+                <li>30 分钟内回填触达结果与客户反馈</li>
+              </>
+            )}
           </ol>
         </Section>
 
         {c && (
-          <button onClick={pop /* parent will keep stack */}
+          <button onClick={() => push({ name: "customer", id: c.id, initialTab: isEscort ? "escort" : "basic" })}
             className="w-full rounded-xl bg-card border border-border p-3 flex items-center gap-3 active:bg-secondary text-left">
             <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-medium">{c.name[0]}</div>
             <div className="flex-1 min-w-0">
@@ -1187,6 +1387,12 @@ function TaskDetail({
           <ActionTile icon={Video} label="视频" onClick={() => toast.info("视频通话邀请已发送")} />
         </div>
 
+        {isEscort && (
+          <button onClick={() => { toast.success("已存档陪诊结果，已生成后续待办"); toggleTask(id); }}
+            className="w-full py-3 rounded-xl bg-card border border-dashed border-primary/40 text-primary text-sm flex items-center justify-center gap-1.5">
+            <ClipboardList className="w-4 h-4" />存档诊断 / 检查 / 用药 · 生成跟踪待办
+          </button>
+        )}
         <button onClick={() => { toggleTask(id); }}
           className={`w-full py-3.5 rounded-xl font-medium text-sm transition ${
             done ? "bg-secondary text-foreground" : "bg-[image:var(--gradient-primary)] text-primary-foreground shadow-[var(--shadow-soft)]"
@@ -1204,9 +1410,9 @@ function TaskDetail({
  *  · 基本信息 / 健康档案 / 数据趋势(30/90/自定义) / 服务包
  *  · 生活偏好 / 家庭结构 / 沟通偏好 / 沟通历史 / 变化雷达 / 备注
  * ============================================================ */
-function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: (s: Stack) => void }) {
+function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => void; push: (s: Stack) => void; initialTab?: "basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med" | "escort" }) {
   const c = customers.find(x => x.id === id) as Customer;
-  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med">("basic");
+  const [tab, setTab] = useState<"basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med" | "escort">(initialTab ?? "basic");
   // 进入患者详情先弹窗展示一段简介
   const [showIntro, setShowIntro] = useState(true);
   const [trendRange, setTrendRange] = useState<"30" | "90" | "custom">("30");
@@ -1273,6 +1479,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
             { id: "report",  l: "报告" },
             { id: "inquiry", l: "问诊" },
             { id: "med",     l: "用药" },
+            { id: "escort",  l: "陪诊" },
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
               className={`flex-1 py-1.5 rounded-lg whitespace-nowrap ${tab === t.id ? "bg-card shadow-sm font-medium" : "text-muted-foreground"}`}>
@@ -1449,6 +1656,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
         {tab === "report" && <ReportTab />}
         {tab === "inquiry" && <InquiryTab />}
         {tab === "med" && <MedTab />}
+        {tab === "escort" && <EscortTab name={c.name} push={push} cid={c.id} />}
       </div>
 
       {/* 右侧固定悬浮：今日建议动作 + 快捷沟通 */}
@@ -1886,6 +2094,80 @@ function InquiryTab() {
 }
 
 /* ===== 用药 Tab ===== */
+function EscortTab({ name, cid, push }: { name: string; cid: string; push: (s: Stack) => void }) {
+  const records = ESCORT_RECORDS[name] ?? [];
+  const upcoming = ESCORT_BRIEFS[name];
+  return (
+    <div className="space-y-3">
+      {upcoming && (
+        <Section title="即将开始 · 陪诊行程">
+          <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
+            <div className="text-[11px] opacity-90 flex items-center gap-1"><Clock className="w-3 h-3" />{upcoming.date}</div>
+            <div className="mt-1 text-sm font-semibold">{upcoming.hospital} · {upcoming.dept}</div>
+            <div className="text-[11px] opacity-90 mt-0.5">{upcoming.doctor} · {upcoming.reason}</div>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px]">
+              <div className="rounded bg-white/15 px-2 py-1">集合：{upcoming.meet}</div>
+              <div className="rounded bg-white/15 px-2 py-1">交通：{upcoming.transport.split("·")[0]}</div>
+            </div>
+          </div>
+          <div className="mt-2 rounded-lg border border-danger/20 bg-danger/5 p-2">
+            <div className="text-[11px] text-danger font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" />陪诊注意事项</div>
+            <ul className="mt-1 text-[12px] space-y-0.5 list-disc pl-4 text-foreground/90">
+              {upcoming.attentions.slice(0, 3).map(a => <li key={a}>{a}</li>)}
+            </ul>
+          </div>
+        </Section>
+      )}
+
+      <Section title="基础病情记录" right={<button onClick={() => toast.info("打开编辑")} className="text-[11px] text-primary">编辑</button>}>
+        <div className="space-y-2 text-sm">
+          <div>
+            <div className="text-[11px] text-muted-foreground mb-1">症状描述</div>
+            <div className="text-[12px] leading-relaxed">{(upcoming?.symptoms ?? ["—"]).join("；")}</div>
+          </div>
+          <div>
+            <div className="text-[11px] text-muted-foreground mb-1">既往情况</div>
+            <div className="text-[12px] leading-relaxed">{(upcoming?.history ?? ["—"]).join("；")}</div>
+          </div>
+        </div>
+      </Section>
+
+      <Section title={`历史陪诊明细（${records.length}）`}>
+        {records.length === 0 ? (
+          <div className="text-[12px] text-muted-foreground py-4 text-center">暂无陪诊记录</div>
+        ) : (
+          <div className="space-y-2.5">
+            {records.map(r => (
+              <div key={r.id} className="rounded-xl border border-border p-3">
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="font-medium">{r.date}</span>
+                  <span className={`ml-auto px-1.5 py-0.5 rounded text-[10px] ${
+                    r.status === "已完成" ? "bg-success/10 text-success" :
+                    r.status === "进行中" ? "bg-primary/10 text-primary" :
+                    "bg-warning/10 text-[oklch(0.5_0.13_75)]"
+                  }`}>{r.status}</span>
+                </div>
+                <div className="mt-1 text-[13px] font-semibold">{r.hospital} · {r.dept}</div>
+                <div className="text-[11px] text-muted-foreground">{r.doctor} · {r.reason}</div>
+                <div className="mt-2 space-y-1.5 text-[12px]">
+                  <div className="flex gap-2"><span className="shrink-0 text-muted-foreground w-12">诊断</span><span className="flex-1">{r.diagnosis}</span></div>
+                  <div className="flex gap-2"><span className="shrink-0 text-muted-foreground w-12">检查</span><span className="flex-1">{r.exam}</span></div>
+                  <div className="flex gap-2"><span className="shrink-0 text-muted-foreground w-12">用药</span><span className="flex-1">{r.meds}</span></div>
+                  <div className="flex gap-2"><span className="shrink-0 text-primary w-12 flex items-center gap-1"><ClipboardList className="w-3 h-3" />跟踪</span><span className="flex-1">{r.followup}</span></div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button onClick={() => toast.success("已生成上门复测待办")} className="py-1.5 rounded-lg bg-secondary text-[11px]">生成复测待办</button>
+                  <button onClick={() => push({ name: "chat", id: cid })} className="py-1.5 rounded-lg bg-primary/10 text-primary text-[11px]">同步家属群</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
 function MedTab() {
   const meds = [
     { n: "二甲双胍",   d: "0.5g · 一日两次 · 餐后",  adh: 92, next: "今日 19:00", warn: "" },
@@ -2963,10 +3245,13 @@ function TaskFilterBar({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-card border border-border p-4">
-      <div className="text-sm font-semibold mb-2">{title}</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-semibold">{title}</div>
+        {right}
+      </div>
       {children}
     </div>
   );
