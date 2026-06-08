@@ -1535,6 +1535,9 @@ function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => 
               </div>
               <button onClick={() => toast.success("已进入编辑")} className="w-full mt-2 py-2 rounded-lg bg-secondary text-xs">编辑备注</button>
             </Section>
+
+            {/* 历史打卡 + 依从性 */}
+            <CheckinHistory />
           </>
         )}
 
