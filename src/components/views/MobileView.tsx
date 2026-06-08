@@ -3930,6 +3930,92 @@ function StationTab() {
   );
 }
 
+/* ---------- 历史打卡 + 依从性 ---------- */
+function CheckinHistory() {
+  // 近 28 天打卡（0 未打卡 / 1 部分 / 2 完整）
+  const days = [2,2,1,2,2,0,2, 2,1,2,2,2,2,1, 2,2,2,0,2,2,2, 1,2,2,2,2,2,2];
+  const total = days.length;
+  const full = days.filter(d => d === 2).length;
+  const part = days.filter(d => d === 1).length;
+  const miss = days.filter(d => d === 0).length;
+  const rate = Math.round(((full + part * 0.5) / total) * 100);
+  const tone = rate >= 85 ? { l: "优秀", c: "text-success", b: "bg-success/10 border-success/30", text: `近 ${total} 天打卡依从性 ${rate}%，习惯稳定，建议继续维持当前节奏。` }
+             : rate >= 60 ? { l: "一般", c: "text-[oklch(0.5_0.13_75)]", b: "bg-warning/10 border-warning/30", text: `近 ${total} 天依从性 ${rate}%，有 ${miss} 天漏打、${part} 天不完整，建议下次沟通中提醒固定时段打卡。` }
+             : { l: "偏低", c: "text-danger", b: "bg-danger/10 border-danger/30", text: `近 ${total} 天依从性仅 ${rate}%，漏打 ${miss} 天，需介入：电话回访了解原因并重新约定打卡时段。` };
+  const items = [
+    { l: "血糖", rate: 92 },
+    { l: "血压", rate: 78 },
+    { l: "用药", rate: 96 },
+    { l: "运动", rate: 54 },
+    { l: "饮食", rate: 71 },
+  ];
+  const recent = [
+    { d: "今日", items: ["血糖 6.4", "血压 132/82", "二甲双胍 ✓", "步行 4200 步"] },
+    { d: "昨日", items: ["血糖 7.1", "血压 138/86", "二甲双胍 ✓", "未运动打卡"] },
+    { d: "5/14", items: ["血糖 6.8", "用药 ✓", "晚餐拍照"] },
+  ];
+  return (
+    <Section title="历史打卡 · 依从性">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="text-center">
+          <div className={`text-2xl font-semibold ${tone.c}`}>{rate}%</div>
+          <div className="text-[10px] text-muted-foreground">近{total}天依从性</div>
+        </div>
+        <div className="flex-1 grid grid-cols-3 gap-1.5 text-center text-[10px]">
+          <div className="rounded bg-success/10 text-success py-1"><div className="text-sm font-medium">{full}</div>完整</div>
+          <div className="rounded bg-warning/10 text-[oklch(0.5_0.13_75)] py-1"><div className="text-sm font-medium">{part}</div>部分</div>
+          <div className="rounded bg-danger/10 text-danger py-1"><div className="text-sm font-medium">{miss}</div>漏打</div>
+        </div>
+      </div>
+      {/* 热力日历 */}
+      <div className="grid grid-cols-14 gap-1" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
+        {days.map((v, i) => (
+          <div key={i} className="aspect-square rounded-[3px]"
+            style={{ background: v === 2 ? "oklch(0.7 0.15 145)" : v === 1 ? "oklch(0.82 0.13 75)" : "oklch(0.92 0.01 250)" }}
+            title={`${total - i} 天前`} />
+        ))}
+      </div>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1.5">
+        <span>{total} 天前</span>
+        <span className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1"><i className="w-2 h-2 rounded-sm inline-block" style={{ background: "oklch(0.92 0.01 250)" }} />无</span>
+          <span className="inline-flex items-center gap-1"><i className="w-2 h-2 rounded-sm inline-block" style={{ background: "oklch(0.82 0.13 75)" }} />部分</span>
+          <span className="inline-flex items-center gap-1"><i className="w-2 h-2 rounded-sm inline-block" style={{ background: "oklch(0.7 0.15 145)" }} />完整</span>
+        </span>
+        <span>今日</span>
+      </div>
+      {/* 分项打卡 */}
+      <div className="mt-3 space-y-1.5">
+        {items.map(it => (
+          <div key={it.l}>
+            <div className="flex justify-between text-[11px] mb-0.5"><span>{it.l}打卡</span><span className={it.rate >= 80 ? "text-success" : it.rate >= 60 ? "text-[oklch(0.5_0.13_75)]" : "text-danger"}>{it.rate}%</span></div>
+            <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+              <div className="h-full" style={{ width: `${it.rate}%`, background: it.rate >= 80 ? "oklch(0.7 0.15 145)" : it.rate >= 60 ? "oklch(0.82 0.13 75)" : "oklch(0.65 0.2 25)" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* AI 总结 */}
+      <div className={`mt-3 rounded-lg border p-2 text-[11px] leading-relaxed flex gap-1.5 ${tone.b}`}>
+        <Sparkles className={`w-3 h-3 mt-0.5 shrink-0 ${tone.c}`} />
+        <div><b className={`mr-1 ${tone.c}`}>[依从性 · {tone.l}]</b>{tone.text}短板项：<b>运动</b>（54%），可推送"餐后 15 分钟散步"提醒。</div>
+      </div>
+      {/* 最近 3 天打卡明细 */}
+      <div className="mt-3 space-y-1.5">
+        <div className="text-[11px] text-muted-foreground">最近打卡明细</div>
+        {recent.map(r => (
+          <div key={r.d} className="rounded-lg bg-secondary/60 p-2">
+            <div className="text-[11px] font-medium mb-0.5">{r.d}</div>
+            <div className="flex flex-wrap gap-1">
+              {r.items.map(x => <span key={x} className="text-[10px] px-1.5 py-0.5 rounded bg-card border border-border">{x}</span>)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
 /* ============================================================
  * 新建话术
  * ============================================================ */
