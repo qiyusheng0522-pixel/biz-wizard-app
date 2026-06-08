@@ -64,6 +64,119 @@ const sevTone = (s: Severity) =>
   s === "中"   ? "bg-primary/10 text-primary border-primary/30" :
                  "bg-secondary text-muted-foreground border-border";
 
+/* ---------- 陪诊数据（任务详情 + 客户档案共用） ---------- */
+type EscortRecord = {
+  id: string;
+  date: string;
+  hospital: string;
+  dept: string;
+  doctor: string;
+  reason: string;
+  diagnosis: string;       // 医生诊断结果
+  exam: string;            // 检查结果
+  meds: string;            // 用取药记录
+  followup: string;        // 形成的后续待办 / 跟踪
+  status: "已完成" | "进行中" | "待出发";
+};
+type EscortBrief = {
+  hospital: string;
+  dept: string;
+  date: string;
+  meet: string;             // 集合地点
+  transport: string;        // 交通方式
+  doctor: string;
+  reason: string;
+  symptoms: string[];       // 当前症状
+  history: string[];        // 既往情况
+  prep: string[];           // 出行准备
+  attentions: string[];     // 陪诊注意事项
+};
+// 陪诊任务实时简报（按客户姓名）
+const ESCORT_BRIEFS: Record<string, EscortBrief> = {
+  "王奶奶": {
+    hospital: "上海瑞金医院",
+    dept: "肿瘤内科",
+    date: "明早 09:30 集合 · 10:00 就诊",
+    meet: "门诊楼大厅 1F 服务台前",
+    transport: "驿站专车（沪EH8821）· 司机张师傅 13812345678",
+    doctor: "王立 主任医师（化疗复查）",
+    reason: "化疗第 3 周期后复查 + 调整用药",
+    symptoms: ["近 3 日轻度恶心 2 次", "夜间睡眠欠佳", "食欲较前下降"],
+    history: ["2024-09 乳腺癌术后", "高血压 10 年（缬沙坦 80mg qd）", "对青霉素过敏"],
+    prep: ["医保卡 + 身份证", "近 30 日血常规/肝肾报告", "近 2 周用药清单", "保温杯 + 软质零食", "晕车药 1 板"],
+    attentions: [
+      "禁食禁水 6h（如需抽血复查）",
+      "随身携带紧急联系人卡（女儿张敏 13900001111）",
+      "化疗药副反应观察：呕吐/发热/手足麻木立即上报",
+      "排队 ≥ 30min 协助患者就近休息，避免久站",
+      "诊后第一时间将诊断+处方拍照同步家属群",
+    ],
+  },
+};
+// 历史陪诊明细（按客户姓名）
+const ESCORT_RECORDS: Record<string, EscortRecord[]> = {
+  "王奶奶": [
+    {
+      id: "E-2025-06",
+      date: "2025-06-08 10:00",
+      hospital: "上海瑞金医院",
+      dept: "肿瘤内科",
+      doctor: "王立 主任",
+      reason: "化疗第 3 周期复查",
+      diagnosis: "病情稳定，CA-153 较上次下降 12%，建议维持现方案",
+      exam: "血常规：WBC 3.8（↓）；肝功正常；胸部 CT 未见新发病灶",
+      meds: "继续：紫杉醇 + 卡培他滨；新增：升白针（瑞白）皮下 q3d × 2 次",
+      followup: "已生成待办：6/11、6/14 上门注射升白针；6/15 复测血常规",
+      status: "进行中",
+    },
+    {
+      id: "E-2025-05",
+      date: "2025-05-18 09:30",
+      hospital: "上海瑞金医院",
+      dept: "肿瘤内科",
+      doctor: "王立 主任",
+      reason: "化疗第 2 周期复查",
+      diagnosis: "耐受良好，无 III 级以上不良反应",
+      exam: "血常规正常；心电图窦性心律；BNP 正常",
+      meds: "原方案继续；昂丹司琼 8mg 餐前 30min 备用",
+      followup: "已完成：3 次电话随访 + 1 次上门测压",
+      status: "已完成",
+    },
+  ],
+  "张老爷子": [
+    {
+      id: "E-2025-05-A",
+      date: "2025-05-22 14:00",
+      hospital: "复旦中山医院",
+      dept: "内分泌科",
+      doctor: "李华 副主任",
+      reason: "糖尿病年度评估",
+      diagnosis: "2 型糖尿病控制不佳，建议调整基础胰岛素",
+      exam: "HbA1c 8.4%；尿微量白蛋白 32mg/L（轻度↑）；眼底正常",
+      meds: "停：格列美脲；新增：德谷胰岛素 12U 睡前皮下",
+      followup: "待办：每日空腹血糖回填；2 周后电话复盘剂量",
+      status: "已完成",
+    },
+  ],
+};
+const getEscortBrief = (name: string): EscortBrief => ESCORT_BRIEFS[name] ?? {
+  hospital: "待登记",
+  dept: "—",
+  date: "—",
+  meet: "—",
+  transport: "驿站专车 / 网约车（待确认）",
+  doctor: "—",
+  reason: "—",
+  symptoms: ["—"],
+  history: ["—"],
+  prep: ["医保卡 + 身份证", "近期检查报告", "常用药 1 周量"],
+  attentions: [
+    "提前 15 分钟到达集合点",
+    "全程陪同就诊，禁止患者单独离开",
+    "重要诊断/处方拍照即时上传",
+  ],
+};
+
 // 虚拟号外呼提示（统一封装）
 const placeCall = (name: string) => {
   toast.success(`正在通过虚拟号外呼 ${name}`, {
