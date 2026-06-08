@@ -1808,8 +1808,43 @@ function CommunicationTimeline({ cid, push }: { cid: string; push: (s: Stack) =>
   const [open, setOpen] = useState<Record<number, boolean>>({});
   const list = all.filter(x => filter === "全部" || x.type === filter);
   const moodColor = (m: string) => m === "正向" ? "text-success" : m === "负向" ? "text-danger" : "text-muted-foreground";
+  // 今日总结 / 自定义时间段总结
+  const today = new Date().toISOString().slice(0, 10);
+  const [sumStart, setSumStart] = useState(today);
+  const [sumEnd, setSumEnd] = useState(today);
+  const [genTick, setGenTick] = useState(0);
+  const isToday = sumStart === today && sumEnd === today;
   return (
     <>
+      <Section title={isToday ? "今日沟通总结" : "时间段沟通总结"}>
+        <div className="flex items-center gap-1.5 mb-2 text-[11px]">
+          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+          <input type="date" value={sumStart} max={sumEnd} onChange={e => setSumStart(e.target.value)}
+            className="flex-1 min-w-0 px-2 py-1 rounded-md border border-border bg-card text-foreground" />
+          <span className="text-muted-foreground">至</span>
+          <input type="date" value={sumEnd} min={sumStart} max={today} onChange={e => setSumEnd(e.target.value)}
+            className="flex-1 min-w-0 px-2 py-1 rounded-md border border-border bg-card text-foreground" />
+          <button onClick={() => { setGenTick(t => t + 1); toast.success("AI 正在重新总结…"); }}
+            className="px-2 py-1 rounded-md bg-primary text-primary-foreground flex items-center gap-1"><Sparkles className="w-3 h-3" />生成</button>
+        </div>
+        <div className="rounded-lg bg-[image:var(--gradient-primary)] text-primary-foreground p-3 text-[12px] leading-relaxed">
+          <div className="text-[10px] opacity-80 flex items-center gap-1"><Sparkles className="w-3 h-3" />AI 总结 · {isToday ? "今日" : `${sumStart} → ${sumEnd}`}{genTick > 0 ? ` · v${genTick + 1}` : ""}</div>
+          <div className="mt-1.5">
+            期内共触达 <b>{isToday ? 3 : 14}</b> 次（电话 {isToday ? 1 : 4} · IM {isToday ? 2 : 8} · 视频 {isToday ? 0 : 1} · 上门 {isToday ? 0 : 1}）。
+            主要议题：<b>低血糖处置回访</b>、<b>晚餐 GI 控制</b>。客户情绪整体偏正向，1 条负向（失眠）已记录。
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <div className="rounded-md bg-white/15 px-2 py-1.5"><div className="text-[10px] opacity-80">关键事件</div><div className="text-[12px] font-medium">低血糖恢复</div></div>
+            <div className="rounded-md bg-white/15 px-2 py-1.5"><div className="text-[10px] opacity-80">风险点</div><div className="text-[12px] font-medium">夜间失眠</div></div>
+            <div className="rounded-md bg-white/15 px-2 py-1.5"><div className="text-[10px] opacity-80">下一步</div><div className="text-[12px] font-medium">周三复诊</div></div>
+          </div>
+        </div>
+        <div className="flex gap-1.5 mt-2">
+          <button onClick={() => { toast.success("已生成待办"); push({ name: "callSummary", id: cid, kind: "text" }); }}
+            className="flex-1 text-[11px] py-1.5 rounded-md bg-primary text-primary-foreground flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" />生成待办</button>
+          <button onClick={() => toast.success("总结已复制")} className="flex-1 text-[11px] py-1.5 rounded-md bg-secondary flex items-center justify-center gap-1"><BookMarked className="w-3 h-3" />复制</button>
+        </div>
+      </Section>
       <Section title="AI 历史触点摘要">
         <p className="text-sm leading-relaxed text-foreground">
           近 30 天共触达 <b>14 次</b>（电话 4、IM 8、视频 1、上门 1）。
