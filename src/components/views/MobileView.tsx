@@ -576,12 +576,16 @@ function MClient({ push, preset, onPresetApplied }: {
                 <span className="text-[11px] text-muted-foreground">{c.gender}·{c.age}</span>
               </div>
               <div className="text-[11px] text-muted-foreground truncate mt-0.5">{c.diseases.join(" / ")}</div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${riskColor(riskOf(c.layer))}`}>{riskOf(c.layer)}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${sourceColor(sourceOf(c.id))}`}>{sourceOf(c.id)}</span>
-                <span className="text-[10px] text-muted-foreground">{c.lastTouch}</span>
+              <div className="flex items-center gap-1 mt-1 flex-nowrap overflow-hidden">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${riskColor(riskOf(c.layer))}`}>{riskOf(c.layer)}</span>
+                <span className="text-muted-foreground/40 text-[10px] shrink-0">|</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0 inline-flex items-center gap-0.5 border-dashed border ${sourceColor(sourceOf(c.id))}`}>
+                  <span className="opacity-60">来源</span>
+                  {sourceOf(c.id)}
+                </span>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0 ml-auto pl-1">{c.lastTouch}</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
