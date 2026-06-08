@@ -818,14 +818,16 @@ function MMe({ push, goClient }: {
     { l: "6-12 月", v: 18 },
     { l: "1 年以上", v: 10 },
   ];
-  // 城市分布（地图替代）
+  // 城市分布（长三角地图示意，以上海为服务基地）
   const cityDist = [
-    { c: "上海", v: 48, x: 78, y: 40 },
-    { c: "杭州", v: 16, x: 70, y: 50 },
-    { c: "苏州", v: 12, x: 72, y: 42 },
-    { c: "南京", v: 6,  x: 64, y: 38 },
-    { c: "其他", v: 4,  x: 50, y: 60 },
+    { c: "上海", v: 48, x: 72, y: 52, base: true  },
+    { c: "苏州", v: 12, x: 58, y: 44 },
+    { c: "无锡", v: 6,  x: 50, y: 38 },
+    { c: "杭州", v: 16, x: 56, y: 64 },
+    { c: "南京", v: 6,  x: 30, y: 32 },
+    { c: "其他", v: 4,  x: 22, y: 70 },
   ];
+  const maxCity = Math.max(...cityDist.map(c => c.v));
   // 五大经营指标
   const kpis: { l: string; v: string; tip: string; tone: "primary" | "success" | "danger" }[] = [
     { l: "服务好评率", v: "96.4%", tone: "success", tip: "= (好评数 ÷ 已评价工单数) × 100%；统计周期内由客户主动评价的工单。" },
@@ -987,20 +989,86 @@ function MMe({ push, goClient }: {
             ))}
           </div>
         </div>
-        {/* 用户地图（示意） */}
+        {/* 用户地图：长三角服务分布 */}
         <div className="mt-4">
-          <div className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1"><MapPin className="w-3 h-3" />客户地理分布</div>
-          <div className="relative w-full rounded-xl bg-secondary/50 overflow-hidden" style={{ height: 140 }}>
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full opacity-30">
-              <path d="M30,30 Q50,20 75,30 L85,50 Q70,70 50,75 Q30,80 20,60 Z" fill="oklch(0.85 0.04 200)" stroke="oklch(0.6 0.1 200)" strokeWidth="0.5" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />客户地理分布 · 长三角</div>
+            <div className="text-[10px] text-muted-foreground">覆盖 {cityDist.length} 城 · 服务半径 320 km</div>
+          </div>
+          <div className="relative w-full rounded-2xl overflow-hidden border border-border"
+               style={{ height: 200, background: "linear-gradient(135deg, oklch(0.97 0.02 220) 0%, oklch(0.93 0.05 220) 100%)" }}>
+            {/* 经纬网格 */}
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full opacity-30">
+              <defs>
+                <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                  <path d="M 10 0 L 0 0 0 10" fill="none" stroke="oklch(0.7 0.05 220)" strokeWidth="0.15" />
+                </pattern>
+                <linearGradient id="land" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stopColor="oklch(0.92 0.04 145)" />
+                  <stop offset="100%" stopColor="oklch(0.86 0.06 160)" />
+                </linearGradient>
+              </defs>
+              <rect width="100" height="100" fill="url(#grid)" />
+              {/* 长三角陆地轮廓 */}
+              <path d="M5,20 Q20,15 35,22 Q50,18 62,28 Q72,38 75,52 Q78,68 70,78 Q55,82 40,76 Q22,72 12,60 Q3,42 5,20 Z"
+                    fill="url(#land)" stroke="oklch(0.6 0.08 160)" strokeWidth="0.4" />
+              {/* 长江示意 */}
+              <path d="M5,30 Q25,32 50,30 Q72,30 80,38" fill="none" stroke="oklch(0.75 0.12 230)" strokeWidth="0.8" strokeLinecap="round" opacity="0.6" />
+              {/* 海岸/海域 */}
+              <path d="M75,52 Q86,55 92,70 L100,70 L100,100 L70,100 Q72,82 75,52 Z" fill="oklch(0.85 0.08 220)" opacity="0.5" />
             </svg>
-            {cityDist.map(c => (
+            {/* 城市圆点 */}
+            {cityDist.map(c => {
+              const size = 10 + (c.v / maxCity) * 22;
+              return (
+                <button
+                  key={c.c}
+                  onClick={() => goClient({ toast: `${c.c} · ${c.v} 位在管客户` })}
+                  className="absolute group"
+                  style={{ left: `${c.x}%`, top: `${c.y}%`, transform: "translate(-50%, -50%)" }}
+                >
+                  {/* 涟漪 */}
+                  {c.base && (
+                    <span
+                      className="absolute rounded-full bg-primary/30 animate-ping"
+                      style={{ width: size + 12, height: size + 12, left: -6, top: -6 }}
+                    />
+                  )}
+                  <span
+                    className={`block rounded-full border-2 shadow-md ${c.base ? "bg-primary border-card" : "bg-primary/80 border-card"}`}
+                    style={{ width: size, height: size }}
+                  />
+                  <span className="absolute left-1/2 -translate-x-1/2 mt-1 top-full whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1 bg-card/90 backdrop-blur border border-border rounded-full px-1.5 py-0.5 shadow-sm">
+                      {c.base && <span className="w-1 h-1 rounded-full bg-danger" />}
+                      <span className="text-[9px] font-medium text-foreground">{c.c}</span>
+                      <span className="text-[9px] text-primary font-semibold">{c.v}</span>
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+            {/* 基地标识 */}
+            <div className="absolute top-2 left-2 text-[9px] bg-card/85 backdrop-blur rounded-md px-1.5 py-0.5 border border-border flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />林姐 · 浦东基地
+            </div>
+            {/* 图例 */}
+            <div className="absolute bottom-2 right-2 text-[9px] bg-card/85 backdrop-blur rounded-md px-1.5 py-1 border border-border space-y-0.5">
+              <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-primary" /><span>≥30 位</span></div>
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary/80" /><span>10–29 位</span></div>
+              <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary/80" /><span>&lt;10 位</span></div>
+            </div>
+          </div>
+          {/* 城市排行条 */}
+          <div className="mt-3 space-y-1.5">
+            {[...cityDist].sort((a,b)=>b.v-a.v).map(c => (
               <button key={c.c} onClick={() => goClient({ toast: `${c.c} · ${c.v} 位在管客户` })}
-                className="absolute -translate-x-1/2 -translate-y-1/2 group"
-                style={{ left: `${c.x}%`, top: `${c.y}%` }}>
-                <span className="block rounded-full bg-primary/80 border-2 border-card shadow"
-                  style={{ width: 8 + c.v/3, height: 8 + c.v/3 }} />
-                <span className="text-[9px] mt-0.5 text-foreground whitespace-nowrap font-medium">{c.c} {c.v}</span>
+                className="w-full flex items-center gap-2 active:opacity-70">
+                <span className="text-[11px] w-8 text-left">{c.c}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                  <div className="h-full bg-[image:var(--gradient-primary)]" style={{ width: `${(c.v / maxCity) * 100}%` }} />
+                </div>
+                <span className="text-[10px] text-muted-foreground w-12 text-right">{c.v} 位</span>
               </button>
             ))}
           </div>
