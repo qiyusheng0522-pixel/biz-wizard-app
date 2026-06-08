@@ -3169,10 +3169,13 @@ function TaskFilterBar({
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, right }: { title: string; children: React.ReactNode; right?: React.ReactNode }) {
   return (
     <div className="rounded-2xl bg-card border border-border p-4">
-      <div className="text-sm font-semibold mb-2">{title}</div>
+      <div className="flex items-center justify-between mb-2">
+        <div className="text-sm font-semibold">{title}</div>
+        {right}
+      </div>
       {children}
     </div>
   );
