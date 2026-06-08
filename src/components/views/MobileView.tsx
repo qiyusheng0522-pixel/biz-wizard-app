@@ -1630,6 +1630,36 @@ function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => 
             ].map(s => {
               const max = Math.max(...s.data); const min = Math.min(...s.data);
               const range = max - min || 1;
+              const last = s.data[s.data.length - 1];
+              const first = s.data[0];
+              const delta = last - first;
+              const summary = (() => {
+                if (s.l.startsWith("血糖")) {
+                  const high = s.data.filter(v => v >= 7.8).length;
+                  const low  = s.data.filter(v => v <= 3.9).length;
+                  if (max >= 9 || low > 0) return { level: "需介入", color: "danger", text: `波动较大，期间出现 ${high} 次餐后高值、${low} 次低值，建议 24h 内电话回访并复核用药与饮食。` };
+                  if (high >= 2) return { level: "需关注", color: "warning", text: `近 ${high} 次餐后偏高，建议提醒减少精制碳水、增加餐后运动。` };
+                  return { level: "良好", color: "success", text: `整体在目标区间内，维持当前方案，按周复测即可。` };
+                }
+                if (s.l.startsWith("血压")) {
+                  const high = s.data.filter(v => v >= 140).length;
+                  if (max >= 150) return { level: "需介入", color: "danger", text: `期间峰值 ${max} mmHg，存在 ${high} 次≥140 异常读数，建议尽快联系并评估是否需要调整降压方案。` };
+                  if (high >= 3) return { level: "需关注", color: "warning", text: `${high} 次收缩压偏高，建议加强晨起测量与低盐饮食宣教。` };
+                  return { level: "良好", color: "success", text: `血压控制平稳，继续保持。` };
+                }
+                if (s.l.startsWith("体重")) {
+                  if (delta <= -1) return { level: "良好", color: "success", text: `周期内下降 ${Math.abs(delta).toFixed(1)} kg，体重管理趋势良好，继续保持饮食 + 运动节奏。` };
+                  if (delta >= 1)  return { level: "需关注", color: "warning", text: `周期内上升 ${delta.toFixed(1)} kg，建议核查近期饮食结构与活动量。` };
+                  return { level: "良好", color: "success", text: `体重平稳，无显著波动。` };
+                }
+                const lowMood = s.data.filter(v => v <= 2).length;
+                if (lowMood >= 2) return { level: "需介入", color: "danger", text: `出现 ${lowMood} 次低情绪打分，建议安排一次情绪关怀沟通或家访。` };
+                if (last <= 3)    return { level: "需关注", color: "warning", text: `当前情绪偏中性，可在下次沟通中加入开放式提问。` };
+                return { level: "良好", color: "success", text: `情绪状态积极，继续维持节奏。` };
+              })();
+              const badge = summary.color === "danger" ? "bg-danger/10 text-danger border-danger/30"
+                          : summary.color === "warning" ? "bg-warning/10 text-[oklch(0.5_0.13_75)] border-warning/30"
+                          : "bg-success/10 text-success border-success/30";
               return (
                 <Section key={s.l} title={s.l}>
                   <div className="flex items-end h-24 gap-1">
@@ -1640,6 +1670,10 @@ function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => 
                   <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
                     <span>{trendRange === "30" ? "30 天前" : trendRange === "90" ? "90 天前" : "起始"}</span>
                     <span>当前 {s.data[s.data.length-1]}{s.unit}</span>
+                  </div>
+                  <div className={`mt-2 rounded-lg border p-2 text-[11px] leading-relaxed flex gap-1.5 ${badge}`}>
+                    <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                    <div><b className="mr-1">[{summary.level}]</b>{summary.text}</div>
                   </div>
                 </Section>
               );
