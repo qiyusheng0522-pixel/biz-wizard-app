@@ -1483,7 +1483,7 @@ function FamilyNode({ n, a, self, dead, authorized }: { n: string; a: number; se
  *  · 每条触点：类型图标 + 时长 + 摘要 + 情绪识别 + 是否真温度
  *  · 可按类型筛选；点击展开原始内容（录音回放 / 文字记录）
  * ============================================================ */
-function CommunicationTimeline() {
+function CommunicationTimeline({ cid, push }: { cid: string; push: (s: Stack) => void }) {
   type TT = "电话" | "IM" | "视频" | "上门" | "语音";
   const all: { t: string; type: TT; icon: typeof Phone; dur: string; sum: string; mood: "正向" | "中性" | "负向"; warm: boolean; raw: { kind: "audio" | "text"; body: string } }[] = [
     { t: "今天 08:30", type: "电话", icon: Phone,         dur: "5'12\"", sum: "低血糖处置回访，客户确认已恢复",       mood: "正向", warm: true,  raw: { kind: "audio", body: "[录音] 早上好，您现在感觉怎么样？……（5 分 12 秒）" } },
@@ -1549,13 +1549,23 @@ function CommunicationTimeline() {
                       )}
                       <div className="text-[10px] text-muted-foreground mt-1.5 italic">{e.raw.body.startsWith("[") ? "" : "原始记录"}</div>
                       {/* 本次沟通 AI 摘要 + 生成待办 */}
-                      <div className="mt-2 rounded-lg bg-card border border-primary/20 p-2">
-                        <div className="text-[10px] text-primary flex items-center gap-1 mb-1"><Sparkles className="w-3 h-3" />本次沟通 AI 总结</div>
-                        <div className="text-[11px] leading-relaxed">{e.sum}。建议后续动作：{e.mood === "负向" ? "24h 内回访 + 情绪关怀" : e.warm ? "维持节奏，3 天后复测" : "推送相关宣教，1 周后跟进"}。</div>
-                        <div className="flex gap-1.5 mt-2">
-                          <button onClick={() => toast.success("已生成待办：" + e.sum)} className="text-[10px] px-2 py-1 rounded bg-primary text-primary-foreground flex items-center gap-1"><ClipboardList className="w-3 h-3" />生成待办</button>
-                          <button onClick={() => toast.info("打开完整聊天上下文")} className="text-[10px] px-2 py-1 rounded bg-secondary flex items-center gap-1"><MessageSquare className="w-3 h-3" />查看上下文</button>
+                      <button
+                        onClick={() => push({ name: "callSummary", id: cid, kind: e.type === "电话" ? "phone" : e.type === "语音" ? "voice" : "text" })}
+                        className="mt-2 w-full text-left rounded-lg bg-card border border-primary/20 p-2 active:bg-secondary"
+                      >
+                        <div className="text-[10px] text-primary flex items-center gap-1 mb-1">
+                          <Sparkles className="w-3 h-3" />本次沟通 AI 总结
+                          <ChevronRight className="w-3 h-3 ml-auto" />
                         </div>
+                        <div className="text-[11px] leading-relaxed">{e.sum}。建议后续动作：{e.mood === "负向" ? "24h 内回访 + 情绪关怀" : e.warm ? "维持节奏，3 天后复测" : "推送相关宣教，1 周后跟进"}。</div>
+                      </button>
+                      <div className="flex gap-1.5 mt-2">
+                        <button
+                          onClick={() => { toast.success("已生成待办，跳转沟通详情"); push({ name: "callSummary", id: cid, kind: e.type === "电话" ? "phone" : e.type === "语音" ? "voice" : "text" }); }}
+                          className="flex-1 text-[10px] px-2 py-1.5 rounded bg-primary text-primary-foreground flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" />生成待办</button>
+                        <button
+                          onClick={() => push({ name: "chat", id: cid })}
+                          className="flex-1 text-[10px] px-2 py-1.5 rounded bg-secondary flex items-center justify-center gap-1"><MessageSquare className="w-3 h-3" />查看上下文</button>
                       </div>
                     </div>
                   )}
