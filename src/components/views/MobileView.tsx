@@ -201,7 +201,7 @@ const autoIntervene = (name: string) => {
 type Stack =
   | { name: "tabs" }
   | { name: "task"; id: string }
-  | { name: "customer"; id: string }
+  | { name: "customer"; id: string; initialTab?: "basic" | "health" | "history" | "trend" | "family" | "station" | "report" | "inquiry" | "med" | "escort" }
   | { name: "chat"; id: string }
   | { name: "notifications" }
   | { name: "search" }
@@ -266,8 +266,8 @@ export function MobileView() {
             {tab === "me"     && <MMe push={push} goClient={goClient} />}
           </>
         )}
-        {top.name === "task"          && <TaskDetail id={top.id} pop={pop} taskState={taskState} toggleTask={toggleTask} />}
-        {top.name === "customer"      && <CustomerDetail id={top.id} pop={pop} push={push} />}
+        {top.name === "task"          && <TaskDetail id={top.id} pop={pop} push={push} taskState={taskState} toggleTask={toggleTask} />}
+        {top.name === "customer"      && <CustomerDetail id={top.id} pop={pop} push={push} initialTab={top.initialTab} />}
         {top.name === "chat"          && <ChatScreen id={top.id} pop={pop} nav={push} />}
         {top.name === "notifications" && <Notifications pop={pop} />}
         {top.name === "search"        && <SearchScreen pop={pop} push={push} />}
