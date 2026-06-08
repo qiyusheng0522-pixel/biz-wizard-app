@@ -576,12 +576,16 @@ function MClient({ push, preset, onPresetApplied }: {
                 <span className="text-[11px] text-muted-foreground">{c.gender}·{c.age}</span>
               </div>
               <div className="text-[11px] text-muted-foreground truncate mt-0.5">{c.diseases.join(" / ")}</div>
-              <div className="flex items-center gap-1.5 mt-1">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${riskColor(riskOf(c.layer))}`}>{riskOf(c.layer)}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${sourceColor(sourceOf(c.id))}`}>{sourceOf(c.id)}</span>
-                <span className="text-[10px] text-muted-foreground">{c.lastTouch}</span>
+              <div className="flex items-center gap-1 mt-1 flex-nowrap overflow-hidden">
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${layerMeta[c.layer].color}`}>{layerMeta[c.layer].label}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${tierColor(tierOf(c.id))}`}>{tierOf(c.id)}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border whitespace-nowrap shrink-0 ${riskColor(riskOf(c.layer))}`}>{riskOf(c.layer)}</span>
+                <span className="text-muted-foreground/40 text-[10px] shrink-0">|</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-md whitespace-nowrap shrink-0 inline-flex items-center gap-0.5 border-dashed border ${sourceColor(sourceOf(c.id))}`}>
+                  <span className="opacity-60">来源</span>
+                  {sourceOf(c.id)}
+                </span>
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0 ml-auto pl-1">{c.lastTouch}</span>
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
@@ -814,14 +818,16 @@ function MMe({ push, goClient }: {
     { l: "6-12 月", v: 18 },
     { l: "1 年以上", v: 10 },
   ];
-  // 城市分布（地图替代）
+  // 城市分布（长三角地图示意，以上海为服务基地）
   const cityDist = [
-    { c: "上海", v: 48, x: 78, y: 40 },
-    { c: "杭州", v: 16, x: 70, y: 50 },
-    { c: "苏州", v: 12, x: 72, y: 42 },
-    { c: "南京", v: 6,  x: 64, y: 38 },
-    { c: "其他", v: 4,  x: 50, y: 60 },
+    { c: "上海", v: 48, x: 72, y: 52, base: true  },
+    { c: "苏州", v: 12, x: 58, y: 44 },
+    { c: "无锡", v: 6,  x: 50, y: 38 },
+    { c: "杭州", v: 16, x: 56, y: 64 },
+    { c: "南京", v: 6,  x: 30, y: 32 },
+    { c: "其他", v: 4,  x: 22, y: 70 },
   ];
+  const maxCity = Math.max(...cityDist.map(c => c.v));
   // 五大经营指标
   const kpis: { l: string; v: string; tip: string; tone: "primary" | "success" | "danger" }[] = [
     { l: "服务好评率", v: "96.4%", tone: "success", tip: "= (好评数 ÷ 已评价工单数) × 100%；统计周期内由客户主动评价的工单。" },
@@ -983,20 +989,86 @@ function MMe({ push, goClient }: {
             ))}
           </div>
         </div>
-        {/* 用户地图（示意） */}
+        {/* 用户地图：长三角服务分布 */}
         <div className="mt-4">
-          <div className="text-[11px] text-muted-foreground mb-2 flex items-center gap-1"><MapPin className="w-3 h-3" />客户地理分布</div>
-          <div className="relative w-full rounded-xl bg-secondary/50 overflow-hidden" style={{ height: 140 }}>
-            <svg viewBox="0 0 100 100" className="absolute inset-0 w-full h-full opacity-30">
-              <path d="M30,30 Q50,20 75,30 L85,50 Q70,70 50,75 Q30,80 20,60 Z" fill="oklch(0.85 0.04 200)" stroke="oklch(0.6 0.1 200)" strokeWidth="0.5" />
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[11px] text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" />客户地理分布 · 长三角</div>
+            <div className="text-[10px] text-muted-foreground">覆盖 {cityDist.length} 城 · 服务半径 320 km</div>
+          </div>
+          <div className="relative w-full rounded-2xl overflow-hidden border border-border"
+               style={{ height: 200, background: "linear-gradient(135deg, oklch(0.97 0.02 220) 0%, oklch(0.93 0.05 220) 100%)" }}>
+            {/* 经纬网格 */}
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full opacity-30">
+              <defs>
+                <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                  <path d="M 10 0 L 0 0 0 10" fill="none" stroke="oklch(0.7 0.05 220)" strokeWidth="0.15" />
+                </pattern>
+                <linearGradient id="land" x1="0" x2="1" y1="0" y2="1">
+                  <stop offset="0%" stopColor="oklch(0.92 0.04 145)" />
+                  <stop offset="100%" stopColor="oklch(0.86 0.06 160)" />
+                </linearGradient>
+              </defs>
+              <rect width="100" height="100" fill="url(#grid)" />
+              {/* 长三角陆地轮廓 */}
+              <path d="M5,20 Q20,15 35,22 Q50,18 62,28 Q72,38 75,52 Q78,68 70,78 Q55,82 40,76 Q22,72 12,60 Q3,42 5,20 Z"
+                    fill="url(#land)" stroke="oklch(0.6 0.08 160)" strokeWidth="0.4" />
+              {/* 长江示意 */}
+              <path d="M5,30 Q25,32 50,30 Q72,30 80,38" fill="none" stroke="oklch(0.75 0.12 230)" strokeWidth="0.8" strokeLinecap="round" opacity="0.6" />
+              {/* 海岸/海域 */}
+              <path d="M75,52 Q86,55 92,70 L100,70 L100,100 L70,100 Q72,82 75,52 Z" fill="oklch(0.85 0.08 220)" opacity="0.5" />
             </svg>
-            {cityDist.map(c => (
+            {/* 城市圆点 */}
+            {cityDist.map(c => {
+              const size = 10 + (c.v / maxCity) * 22;
+              return (
+                <button
+                  key={c.c}
+                  onClick={() => goClient({ toast: `${c.c} · ${c.v} 位在管客户` })}
+                  className="absolute group"
+                  style={{ left: `${c.x}%`, top: `${c.y}%`, transform: "translate(-50%, -50%)" }}
+                >
+                  {/* 涟漪 */}
+                  {c.base && (
+                    <span
+                      className="absolute rounded-full bg-primary/30 animate-ping"
+                      style={{ width: size + 12, height: size + 12, left: -6, top: -6 }}
+                    />
+                  )}
+                  <span
+                    className={`block rounded-full border-2 shadow-md ${c.base ? "bg-primary border-card" : "bg-primary/80 border-card"}`}
+                    style={{ width: size, height: size }}
+                  />
+                  <span className="absolute left-1/2 -translate-x-1/2 mt-1 top-full whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1 bg-card/90 backdrop-blur border border-border rounded-full px-1.5 py-0.5 shadow-sm">
+                      {c.base && <span className="w-1 h-1 rounded-full bg-danger" />}
+                      <span className="text-[9px] font-medium text-foreground">{c.c}</span>
+                      <span className="text-[9px] text-primary font-semibold">{c.v}</span>
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+            {/* 基地标识 */}
+            <div className="absolute top-2 left-2 text-[9px] bg-card/85 backdrop-blur rounded-md px-1.5 py-0.5 border border-border flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />林姐 · 浦东基地
+            </div>
+            {/* 图例 */}
+            <div className="absolute bottom-2 right-2 text-[9px] bg-card/85 backdrop-blur rounded-md px-1.5 py-1 border border-border space-y-0.5">
+              <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-primary" /><span>≥30 位</span></div>
+              <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-primary/80" /><span>10–29 位</span></div>
+              <div className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary/80" /><span>&lt;10 位</span></div>
+            </div>
+          </div>
+          {/* 城市排行条 */}
+          <div className="mt-3 space-y-1.5">
+            {[...cityDist].sort((a,b)=>b.v-a.v).map(c => (
               <button key={c.c} onClick={() => goClient({ toast: `${c.c} · ${c.v} 位在管客户` })}
-                className="absolute -translate-x-1/2 -translate-y-1/2 group"
-                style={{ left: `${c.x}%`, top: `${c.y}%` }}>
-                <span className="block rounded-full bg-primary/80 border-2 border-card shadow"
-                  style={{ width: 8 + c.v/3, height: 8 + c.v/3 }} />
-                <span className="text-[9px] mt-0.5 text-foreground whitespace-nowrap font-medium">{c.c} {c.v}</span>
+                className="w-full flex items-center gap-2 active:opacity-70">
+                <span className="text-[11px] w-8 text-left">{c.c}</span>
+                <div className="flex-1 h-1.5 rounded-full bg-secondary overflow-hidden">
+                  <div className="h-full bg-[image:var(--gradient-primary)]" style={{ width: `${(c.v / maxCity) * 100}%` }} />
+                </div>
+                <span className="text-[10px] text-muted-foreground w-12 text-right">{c.v} 位</span>
               </button>
             ))}
           </div>
@@ -1369,7 +1441,7 @@ function CustomerDetail({ id, pop, push }: { id: string; pop: () => void; push: 
         )}
 
         {/* ===== 沟通历史（CM-C 组）===== */}
-        {tab === "history" && <CommunicationTimeline />}
+        {tab === "history" && <CommunicationTimeline cid={c.id} push={push} />}
 
         {tab === "family" && <FamilyView selfName={c.name} selfAge={c.age} />}
         {tab === "station" && <StationTab />}
@@ -1479,7 +1551,7 @@ function FamilyNode({ n, a, self, dead, authorized }: { n: string; a: number; se
  *  · 每条触点：类型图标 + 时长 + 摘要 + 情绪识别 + 是否真温度
  *  · 可按类型筛选；点击展开原始内容（录音回放 / 文字记录）
  * ============================================================ */
-function CommunicationTimeline() {
+function CommunicationTimeline({ cid, push }: { cid: string; push: (s: Stack) => void }) {
   type TT = "电话" | "IM" | "视频" | "上门" | "语音";
   const all: { t: string; type: TT; icon: typeof Phone; dur: string; sum: string; mood: "正向" | "中性" | "负向"; warm: boolean; raw: { kind: "audio" | "text"; body: string } }[] = [
     { t: "今天 08:30", type: "电话", icon: Phone,         dur: "5'12\"", sum: "低血糖处置回访，客户确认已恢复",       mood: "正向", warm: true,  raw: { kind: "audio", body: "[录音] 早上好，您现在感觉怎么样？……（5 分 12 秒）" } },
@@ -1545,13 +1617,23 @@ function CommunicationTimeline() {
                       )}
                       <div className="text-[10px] text-muted-foreground mt-1.5 italic">{e.raw.body.startsWith("[") ? "" : "原始记录"}</div>
                       {/* 本次沟通 AI 摘要 + 生成待办 */}
-                      <div className="mt-2 rounded-lg bg-card border border-primary/20 p-2">
-                        <div className="text-[10px] text-primary flex items-center gap-1 mb-1"><Sparkles className="w-3 h-3" />本次沟通 AI 总结</div>
-                        <div className="text-[11px] leading-relaxed">{e.sum}。建议后续动作：{e.mood === "负向" ? "24h 内回访 + 情绪关怀" : e.warm ? "维持节奏，3 天后复测" : "推送相关宣教，1 周后跟进"}。</div>
-                        <div className="flex gap-1.5 mt-2">
-                          <button onClick={() => toast.success("已生成待办：" + e.sum)} className="text-[10px] px-2 py-1 rounded bg-primary text-primary-foreground flex items-center gap-1"><ClipboardList className="w-3 h-3" />生成待办</button>
-                          <button onClick={() => toast.info("打开完整聊天上下文")} className="text-[10px] px-2 py-1 rounded bg-secondary flex items-center gap-1"><MessageSquare className="w-3 h-3" />查看上下文</button>
+                      <button
+                        onClick={() => push({ name: "callSummary", id: cid, kind: e.type === "电话" ? "phone" : e.type === "语音" ? "voice" : "text" })}
+                        className="mt-2 w-full text-left rounded-lg bg-card border border-primary/20 p-2 active:bg-secondary"
+                      >
+                        <div className="text-[10px] text-primary flex items-center gap-1 mb-1">
+                          <Sparkles className="w-3 h-3" />本次沟通 AI 总结
+                          <ChevronRight className="w-3 h-3 ml-auto" />
                         </div>
+                        <div className="text-[11px] leading-relaxed">{e.sum}。建议后续动作：{e.mood === "负向" ? "24h 内回访 + 情绪关怀" : e.warm ? "维持节奏，3 天后复测" : "推送相关宣教，1 周后跟进"}。</div>
+                      </button>
+                      <div className="flex gap-1.5 mt-2">
+                        <button
+                          onClick={() => { toast.success("已生成待办，跳转沟通详情"); push({ name: "callSummary", id: cid, kind: e.type === "电话" ? "phone" : e.type === "语音" ? "voice" : "text" }); }}
+                          className="flex-1 text-[10px] px-2 py-1.5 rounded bg-primary text-primary-foreground flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" />生成待办</button>
+                        <button
+                          onClick={() => push({ name: "chat", id: cid })}
+                          className="flex-1 text-[10px] px-2 py-1.5 rounded bg-secondary flex items-center justify-center gap-1"><MessageSquare className="w-3 h-3" />查看上下文</button>
                       </div>
                     </div>
                   )}
