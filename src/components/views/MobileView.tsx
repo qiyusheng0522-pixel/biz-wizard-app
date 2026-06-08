@@ -1535,6 +1535,9 @@ function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => 
               </div>
               <button onClick={() => toast.success("已进入编辑")} className="w-full mt-2 py-2 rounded-lg bg-secondary text-xs">编辑备注</button>
             </Section>
+
+            {/* 历史打卡 + 依从性 */}
+            <CheckinHistory />
           </>
         )}
 
@@ -1630,6 +1633,36 @@ function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => 
             ].map(s => {
               const max = Math.max(...s.data); const min = Math.min(...s.data);
               const range = max - min || 1;
+              const last = s.data[s.data.length - 1];
+              const first = s.data[0];
+              const delta = last - first;
+              const summary = (() => {
+                if (s.l.startsWith("血糖")) {
+                  const high = s.data.filter(v => v >= 7.8).length;
+                  const low  = s.data.filter(v => v <= 3.9).length;
+                  if (max >= 9 || low > 0) return { level: "需介入", color: "danger", text: `波动较大，期间出现 ${high} 次餐后高值、${low} 次低值，建议 24h 内电话回访并复核用药与饮食。` };
+                  if (high >= 2) return { level: "需关注", color: "warning", text: `近 ${high} 次餐后偏高，建议提醒减少精制碳水、增加餐后运动。` };
+                  return { level: "良好", color: "success", text: `整体在目标区间内，维持当前方案，按周复测即可。` };
+                }
+                if (s.l.startsWith("血压")) {
+                  const high = s.data.filter(v => v >= 140).length;
+                  if (max >= 150) return { level: "需介入", color: "danger", text: `期间峰值 ${max} mmHg，存在 ${high} 次≥140 异常读数，建议尽快联系并评估是否需要调整降压方案。` };
+                  if (high >= 3) return { level: "需关注", color: "warning", text: `${high} 次收缩压偏高，建议加强晨起测量与低盐饮食宣教。` };
+                  return { level: "良好", color: "success", text: `血压控制平稳，继续保持。` };
+                }
+                if (s.l.startsWith("体重")) {
+                  if (delta <= -1) return { level: "良好", color: "success", text: `周期内下降 ${Math.abs(delta).toFixed(1)} kg，体重管理趋势良好，继续保持饮食 + 运动节奏。` };
+                  if (delta >= 1)  return { level: "需关注", color: "warning", text: `周期内上升 ${delta.toFixed(1)} kg，建议核查近期饮食结构与活动量。` };
+                  return { level: "良好", color: "success", text: `体重平稳，无显著波动。` };
+                }
+                const lowMood = s.data.filter(v => v <= 2).length;
+                if (lowMood >= 2) return { level: "需介入", color: "danger", text: `出现 ${lowMood} 次低情绪打分，建议安排一次情绪关怀沟通或家访。` };
+                if (last <= 3)    return { level: "需关注", color: "warning", text: `当前情绪偏中性，可在下次沟通中加入开放式提问。` };
+                return { level: "良好", color: "success", text: `情绪状态积极，继续维持节奏。` };
+              })();
+              const badge = summary.color === "danger" ? "bg-danger/10 text-danger border-danger/30"
+                          : summary.color === "warning" ? "bg-warning/10 text-[oklch(0.5_0.13_75)] border-warning/30"
+                          : "bg-success/10 text-success border-success/30";
               return (
                 <Section key={s.l} title={s.l}>
                   <div className="flex items-end h-24 gap-1">
@@ -1640,6 +1673,10 @@ function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => 
                   <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
                     <span>{trendRange === "30" ? "30 天前" : trendRange === "90" ? "90 天前" : "起始"}</span>
                     <span>当前 {s.data[s.data.length-1]}{s.unit}</span>
+                  </div>
+                  <div className={`mt-2 rounded-lg border p-2 text-[11px] leading-relaxed flex gap-1.5 ${badge}`}>
+                    <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+                    <div><b className="mr-1">[{summary.level}]</b>{summary.text}</div>
                   </div>
                 </Section>
               );
@@ -1774,8 +1811,43 @@ function CommunicationTimeline({ cid, push }: { cid: string; push: (s: Stack) =>
   const [open, setOpen] = useState<Record<number, boolean>>({});
   const list = all.filter(x => filter === "全部" || x.type === filter);
   const moodColor = (m: string) => m === "正向" ? "text-success" : m === "负向" ? "text-danger" : "text-muted-foreground";
+  // 今日总结 / 自定义时间段总结
+  const today = new Date().toISOString().slice(0, 10);
+  const [sumStart, setSumStart] = useState(today);
+  const [sumEnd, setSumEnd] = useState(today);
+  const [genTick, setGenTick] = useState(0);
+  const isToday = sumStart === today && sumEnd === today;
   return (
     <>
+      <Section title={isToday ? "今日沟通总结" : "时间段沟通总结"}>
+        <div className="flex items-center gap-1.5 mb-2 text-[11px]">
+          <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
+          <input type="date" value={sumStart} max={sumEnd} onChange={e => setSumStart(e.target.value)}
+            className="flex-1 min-w-0 px-2 py-1 rounded-md border border-border bg-card text-foreground" />
+          <span className="text-muted-foreground">至</span>
+          <input type="date" value={sumEnd} min={sumStart} max={today} onChange={e => setSumEnd(e.target.value)}
+            className="flex-1 min-w-0 px-2 py-1 rounded-md border border-border bg-card text-foreground" />
+          <button onClick={() => { setGenTick(t => t + 1); toast.success("AI 正在重新总结…"); }}
+            className="px-2 py-1 rounded-md bg-primary text-primary-foreground flex items-center gap-1"><Sparkles className="w-3 h-3" />生成</button>
+        </div>
+        <div className="rounded-lg bg-[image:var(--gradient-primary)] text-primary-foreground p-3 text-[12px] leading-relaxed">
+          <div className="text-[10px] opacity-80 flex items-center gap-1"><Sparkles className="w-3 h-3" />AI 总结 · {isToday ? "今日" : `${sumStart} → ${sumEnd}`}{genTick > 0 ? ` · v${genTick + 1}` : ""}</div>
+          <div className="mt-1.5">
+            期内共触达 <b>{isToday ? 3 : 14}</b> 次（电话 {isToday ? 1 : 4} · IM {isToday ? 2 : 8} · 视频 {isToday ? 0 : 1} · 上门 {isToday ? 0 : 1}）。
+            主要议题：<b>低血糖处置回访</b>、<b>晚餐 GI 控制</b>。客户情绪整体偏正向，1 条负向（失眠）已记录。
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-1.5">
+            <div className="rounded-md bg-white/15 px-2 py-1.5"><div className="text-[10px] opacity-80">关键事件</div><div className="text-[12px] font-medium">低血糖恢复</div></div>
+            <div className="rounded-md bg-white/15 px-2 py-1.5"><div className="text-[10px] opacity-80">风险点</div><div className="text-[12px] font-medium">夜间失眠</div></div>
+            <div className="rounded-md bg-white/15 px-2 py-1.5"><div className="text-[10px] opacity-80">下一步</div><div className="text-[12px] font-medium">周三复诊</div></div>
+          </div>
+        </div>
+        <div className="flex gap-1.5 mt-2">
+          <button onClick={() => { toast.success("已生成待办"); push({ name: "callSummary", id: cid, kind: "text" }); }}
+            className="flex-1 text-[11px] py-1.5 rounded-md bg-primary text-primary-foreground flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" />生成待办</button>
+          <button onClick={() => toast.success("总结已复制")} className="flex-1 text-[11px] py-1.5 rounded-md bg-secondary flex items-center justify-center gap-1"><BookMarked className="w-3 h-3" />复制</button>
+        </div>
+      </Section>
       <Section title="AI 历史触点摘要">
         <p className="text-sm leading-relaxed text-foreground">
           近 30 天共触达 <b>14 次</b>（电话 4、IM 8、视频 1、上门 1）。
@@ -3821,7 +3893,7 @@ function StationTab() {
         </div>
       </AccordionSection>
 
-      <AccordionSection title="驿站测试数据" count={tests.length}>
+      <AccordionSection title="驿站监测数据" count={tests.length}>
         <div className="space-y-1.5">
           {tests.map((t,i)=>(
             <div key={i} className="flex items-center gap-2 py-1.5 border-b border-border last:border-0">
@@ -3855,6 +3927,92 @@ function StationTab() {
         </div>
       </AccordionSection>
     </div>
+  );
+}
+
+/* ---------- 历史打卡 + 依从性 ---------- */
+function CheckinHistory() {
+  // 近 28 天打卡（0 未打卡 / 1 部分 / 2 完整）
+  const days = [2,2,1,2,2,0,2, 2,1,2,2,2,2,1, 2,2,2,0,2,2,2, 1,2,2,2,2,2,2];
+  const total = days.length;
+  const full = days.filter(d => d === 2).length;
+  const part = days.filter(d => d === 1).length;
+  const miss = days.filter(d => d === 0).length;
+  const rate = Math.round(((full + part * 0.5) / total) * 100);
+  const tone = rate >= 85 ? { l: "优秀", c: "text-success", b: "bg-success/10 border-success/30", text: `近 ${total} 天打卡依从性 ${rate}%，习惯稳定，建议继续维持当前节奏。` }
+             : rate >= 60 ? { l: "一般", c: "text-[oklch(0.5_0.13_75)]", b: "bg-warning/10 border-warning/30", text: `近 ${total} 天依从性 ${rate}%，有 ${miss} 天漏打、${part} 天不完整，建议下次沟通中提醒固定时段打卡。` }
+             : { l: "偏低", c: "text-danger", b: "bg-danger/10 border-danger/30", text: `近 ${total} 天依从性仅 ${rate}%，漏打 ${miss} 天，需介入：电话回访了解原因并重新约定打卡时段。` };
+  const items = [
+    { l: "血糖", rate: 92 },
+    { l: "血压", rate: 78 },
+    { l: "用药", rate: 96 },
+    { l: "运动", rate: 54 },
+    { l: "饮食", rate: 71 },
+  ];
+  const recent = [
+    { d: "今日", items: ["血糖 6.4", "血压 132/82", "二甲双胍 ✓", "步行 4200 步"] },
+    { d: "昨日", items: ["血糖 7.1", "血压 138/86", "二甲双胍 ✓", "未运动打卡"] },
+    { d: "5/14", items: ["血糖 6.8", "用药 ✓", "晚餐拍照"] },
+  ];
+  return (
+    <Section title="历史打卡 · 依从性">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="text-center">
+          <div className={`text-2xl font-semibold ${tone.c}`}>{rate}%</div>
+          <div className="text-[10px] text-muted-foreground">近{total}天依从性</div>
+        </div>
+        <div className="flex-1 grid grid-cols-3 gap-1.5 text-center text-[10px]">
+          <div className="rounded bg-success/10 text-success py-1"><div className="text-sm font-medium">{full}</div>完整</div>
+          <div className="rounded bg-warning/10 text-[oklch(0.5_0.13_75)] py-1"><div className="text-sm font-medium">{part}</div>部分</div>
+          <div className="rounded bg-danger/10 text-danger py-1"><div className="text-sm font-medium">{miss}</div>漏打</div>
+        </div>
+      </div>
+      {/* 热力日历 */}
+      <div className="grid grid-cols-14 gap-1" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
+        {days.map((v, i) => (
+          <div key={i} className="aspect-square rounded-[3px]"
+            style={{ background: v === 2 ? "oklch(0.7 0.15 145)" : v === 1 ? "oklch(0.82 0.13 75)" : "oklch(0.92 0.01 250)" }}
+            title={`${total - i} 天前`} />
+        ))}
+      </div>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground mt-1.5">
+        <span>{total} 天前</span>
+        <span className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1"><i className="w-2 h-2 rounded-sm inline-block" style={{ background: "oklch(0.92 0.01 250)" }} />无</span>
+          <span className="inline-flex items-center gap-1"><i className="w-2 h-2 rounded-sm inline-block" style={{ background: "oklch(0.82 0.13 75)" }} />部分</span>
+          <span className="inline-flex items-center gap-1"><i className="w-2 h-2 rounded-sm inline-block" style={{ background: "oklch(0.7 0.15 145)" }} />完整</span>
+        </span>
+        <span>今日</span>
+      </div>
+      {/* 分项打卡 */}
+      <div className="mt-3 space-y-1.5">
+        {items.map(it => (
+          <div key={it.l}>
+            <div className="flex justify-between text-[11px] mb-0.5"><span>{it.l}打卡</span><span className={it.rate >= 80 ? "text-success" : it.rate >= 60 ? "text-[oklch(0.5_0.13_75)]" : "text-danger"}>{it.rate}%</span></div>
+            <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+              <div className="h-full" style={{ width: `${it.rate}%`, background: it.rate >= 80 ? "oklch(0.7 0.15 145)" : it.rate >= 60 ? "oklch(0.82 0.13 75)" : "oklch(0.65 0.2 25)" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* AI 总结 */}
+      <div className={`mt-3 rounded-lg border p-2 text-[11px] leading-relaxed flex gap-1.5 ${tone.b}`}>
+        <Sparkles className={`w-3 h-3 mt-0.5 shrink-0 ${tone.c}`} />
+        <div><b className={`mr-1 ${tone.c}`}>[依从性 · {tone.l}]</b>{tone.text}短板项：<b>运动</b>（54%），可推送"餐后 15 分钟散步"提醒。</div>
+      </div>
+      {/* 最近 3 天打卡明细 */}
+      <div className="mt-3 space-y-1.5">
+        <div className="text-[11px] text-muted-foreground">最近打卡明细</div>
+        {recent.map(r => (
+          <div key={r.d} className="rounded-lg bg-secondary/60 p-2">
+            <div className="text-[11px] font-medium mb-0.5">{r.d}</div>
+            <div className="flex flex-wrap gap-1">
+              {r.items.map(x => <span key={x} className="text-[10px] px-1.5 py-0.5 rounded bg-card border border-border">{x}</span>)}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Section>
   );
 }
 
