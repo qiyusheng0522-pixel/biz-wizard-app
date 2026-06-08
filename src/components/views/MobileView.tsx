@@ -2094,6 +2094,80 @@ function InquiryTab() {
 }
 
 /* ===== 用药 Tab ===== */
+function EscortTab({ name, cid, push }: { name: string; cid: string; push: (s: Stack) => void }) {
+  const records = ESCORT_RECORDS[name] ?? [];
+  const upcoming = ESCORT_BRIEFS[name];
+  return (
+    <div className="space-y-3">
+      {upcoming && (
+        <Section title="即将开始 · 陪诊行程">
+          <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
+            <div className="text-[11px] opacity-90 flex items-center gap-1"><Clock className="w-3 h-3" />{upcoming.date}</div>
+            <div className="mt-1 text-sm font-semibold">{upcoming.hospital} · {upcoming.dept}</div>
+            <div className="text-[11px] opacity-90 mt-0.5">{upcoming.doctor} · {upcoming.reason}</div>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px]">
+              <div className="rounded bg-white/15 px-2 py-1">集合：{upcoming.meet}</div>
+              <div className="rounded bg-white/15 px-2 py-1">交通：{upcoming.transport.split("·")[0]}</div>
+            </div>
+          </div>
+          <div className="mt-2 rounded-lg border border-danger/20 bg-danger/5 p-2">
+            <div className="text-[11px] text-danger font-medium flex items-center gap-1"><AlertTriangle className="w-3 h-3" />陪诊注意事项</div>
+            <ul className="mt-1 text-[12px] space-y-0.5 list-disc pl-4 text-foreground/90">
+              {upcoming.attentions.slice(0, 3).map(a => <li key={a}>{a}</li>)}
+            </ul>
+          </div>
+        </Section>
+      )}
+
+      <Section title="基础病情记录" right={<button onClick={() => toast.info("打开编辑")} className="text-[11px] text-primary">编辑</button>}>
+        <div className="space-y-2 text-sm">
+          <div>
+            <div className="text-[11px] text-muted-foreground mb-1">症状描述</div>
+            <div className="text-[12px] leading-relaxed">{(upcoming?.symptoms ?? ["—"]).join("；")}</div>
+          </div>
+          <div>
+            <div className="text-[11px] text-muted-foreground mb-1">既往情况</div>
+            <div className="text-[12px] leading-relaxed">{(upcoming?.history ?? ["—"]).join("；")}</div>
+          </div>
+        </div>
+      </Section>
+
+      <Section title={`历史陪诊明细（${records.length}）`}>
+        {records.length === 0 ? (
+          <div className="text-[12px] text-muted-foreground py-4 text-center">暂无陪诊记录</div>
+        ) : (
+          <div className="space-y-2.5">
+            {records.map(r => (
+              <div key={r.id} className="rounded-xl border border-border p-3">
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="font-medium">{r.date}</span>
+                  <span className={`ml-auto px-1.5 py-0.5 rounded text-[10px] ${
+                    r.status === "已完成" ? "bg-success/10 text-success" :
+                    r.status === "进行中" ? "bg-primary/10 text-primary" :
+                    "bg-warning/10 text-[oklch(0.5_0.13_75)]"
+                  }`}>{r.status}</span>
+                </div>
+                <div className="mt-1 text-[13px] font-semibold">{r.hospital} · {r.dept}</div>
+                <div className="text-[11px] text-muted-foreground">{r.doctor} · {r.reason}</div>
+                <div className="mt-2 space-y-1.5 text-[12px]">
+                  <div className="flex gap-2"><span className="shrink-0 text-muted-foreground w-12">诊断</span><span className="flex-1">{r.diagnosis}</span></div>
+                  <div className="flex gap-2"><span className="shrink-0 text-muted-foreground w-12">检查</span><span className="flex-1">{r.exam}</span></div>
+                  <div className="flex gap-2"><span className="shrink-0 text-muted-foreground w-12">用药</span><span className="flex-1">{r.meds}</span></div>
+                  <div className="flex gap-2"><span className="shrink-0 text-primary w-12 flex items-center gap-1"><ClipboardList className="w-3 h-3" />跟踪</span><span className="flex-1">{r.followup}</span></div>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button onClick={() => toast.success("已生成上门复测待办")} className="py-1.5 rounded-lg bg-secondary text-[11px]">生成复测待办</button>
+                  <button onClick={() => push({ name: "chat", id: cid })} className="py-1.5 rounded-lg bg-primary/10 text-primary text-[11px]">同步家属群</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
 function MedTab() {
   const meds = [
     { n: "二甲双胍",   d: "0.5g · 一日两次 · 餐后",  adh: 92, next: "今日 19:00", warn: "" },
