@@ -1248,6 +1248,105 @@ function MMe({ push, goClient }: {
 }
 
 /* ============================================================
+ * 打卡详细记录
+ * ============================================================ */
+function CheckinDetail({ id, pop }: { id: string; pop: () => void }) {
+  const c = customers.find(x => x.id === id) ?? customers[0];
+  // 近 30 天打卡明细
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const md = `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, "0")}`;
+    const status = i === 5 || i === 17 ? "miss" : i % 7 === 3 ? "part" : "full";
+    return {
+      date: md,
+      status,
+      glucose: status === "miss" ? "—" : `${(6 + Math.random() * 2).toFixed(1)} mmol/L`,
+      bp: status === "miss" ? "—" : `${130 + Math.round(Math.random() * 10)}/${80 + Math.round(Math.random() * 8)} mmHg`,
+      med: status === "miss" ? "未打卡" : "二甲双胍 ✓ 厄贝沙坦 ✓",
+      ex: status === "miss" ? "—" : status === "part" ? "—" : `步行 ${3000 + Math.round(Math.random() * 3000)} 步`,
+      diet: status === "full" ? "三餐已记录" : status === "part" ? "仅早餐" : "—",
+    };
+  });
+  const full = days.filter(d => d.status === "full").length;
+  const part = days.filter(d => d.status === "part").length;
+  const miss = days.filter(d => d.status === "miss").length;
+  const rate = Math.round(((full + part * 0.5) / days.length) * 100);
+  return (
+    <div>
+      <PageHeader title={`${c.name} · 打卡详细记录`} pop={pop} />
+      <div className="p-4 space-y-3">
+        <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
+          <div className="text-[11px] opacity-90">近 30 天依从性</div>
+          <div className="text-2xl font-semibold mt-1">{rate}%</div>
+          <div className="mt-1 grid grid-cols-3 gap-2 text-[11px]">
+            <div className="rounded bg-white/15 px-2 py-1">完整 {full} 天</div>
+            <div className="rounded bg-white/15 px-2 py-1">部分 {part} 天</div>
+            <div className="rounded bg-white/15 px-2 py-1">漏打 {miss} 天</div>
+          </div>
+        </div>
+        <Section title="逐日打卡明细">
+          <div className="space-y-2">
+            {days.map(d => (
+              <div key={d.date} className="rounded-xl border border-border p-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-medium">{d.date}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ml-auto ${
+                    d.status === "full" ? "bg-success/10 text-success" :
+                    d.status === "part" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
+                    "bg-danger/10 text-danger"
+                  }`}>{d.status === "full" ? "完整" : d.status === "part" ? "部分" : "漏打"}</span>
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-foreground/85">
+                  <div><span className="text-muted-foreground">血糖 </span>{d.glucose}</div>
+                  <div><span className="text-muted-foreground">血压 </span>{d.bp}</div>
+                  <div className="col-span-2"><span className="text-muted-foreground">用药 </span>{d.med}</div>
+                  <div><span className="text-muted-foreground">运动 </span>{d.ex}</div>
+                  <div><span className="text-muted-foreground">饮食 </span>{d.diet}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * MDT 会诊详情（含完成会诊后的总结）
+ * ============================================================ */
+function MdtDetail({ id, pop }: { id: string; pop: () => void }) {
+  return (
+    <div>
+      <PageHeader title={`MDT 详情 · ${id}`} pop={pop} />
+      <div className="p-4 space-y-3">
+        <Section title="基本信息">
+          <div className="text-[12px] space-y-1">
+            <div><span className="text-muted-foreground">编号 </span>{id}</div>
+            <div><span className="text-muted-foreground">参与 </span>赵主任 / 钱药师 / 孙老师 / 我</div>
+            <div><span className="text-muted-foreground">主题 </span>化疗反应处置 + 营养调整</div>
+          </div>
+        </Section>
+        <Section title="AI 会诊总结" right={<span className="text-[10px] text-primary flex items-center gap-0.5"><Sparkles className="w-3 h-3" />自动生成</span>}>
+          <div className="text-[12px] leading-relaxed space-y-2">
+            <div><b className="text-primary">结论：</b>近期化疗反应可控，需调整止吐方案并加强营养补充。</div>
+            <div><b className="text-primary">用药调整：</b>昂丹司琼 8mg → 餐前 30min；二甲双胍调整为餐后 0.5g。</div>
+            <div><b className="text-primary">营养建议：</b>少量多餐，蛋白质 1.2g/kg，避免高脂；推荐口服营养补充剂 ONS。</div>
+            <div><b className="text-primary">随访计划：</b>3 天后电话随访恶心评分；1 周后复查肝肾功能。</div>
+          </div>
+        </Section>
+        <Section title="同步至患者问诊记录">
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-2.5 text-[11px] text-foreground/85">
+            <CheckCircle2 className="w-3.5 h-3.5 text-primary inline mr-1" />
+            本次 MDT 总结已自动写入患者问诊记录，并生成 2 条跟踪待办。
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
  * 详情：任务
  * ============================================================ */
 function TaskDetail({
