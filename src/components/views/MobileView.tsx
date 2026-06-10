@@ -2841,7 +2841,6 @@ function AddCustomer({ pop }: { pop: () => void }) {
             { n: 1, l: "基本信息" },
             { n: 2, l: "病历资料" },
             { n: 3, l: "健康档案" },
-            { n: 4, l: "服务包" },
           ].map((s, i) => (
             <div key={s.n} className="flex-1 flex items-center gap-2">
               <button onClick={() => setStep(s.n)}
@@ -2849,7 +2848,7 @@ function AddCustomer({ pop }: { pop: () => void }) {
                 <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${step >= s.n ? "bg-primary-foreground/30" : "bg-background"}`}>{s.n}</span>
                 {s.l}
               </button>
-              {i < 3 && <span className={`h-px flex-1 ${step > s.n ? "bg-primary/40" : "bg-border"}`} />}
+              {i < 2 && <span className={`h-px flex-1 ${step > s.n ? "bg-primary/40" : "bg-border"}`} />}
             </div>
           ))}
         </div>
@@ -2948,31 +2947,11 @@ function AddCustomer({ pop }: { pop: () => void }) {
             <TextArea label="过敏史" value={form.allergies} onChange={v => setForm({ ...form, allergies: v })} placeholder="如：青霉素、海鲜，无则填无" />
             <TextArea label="既往史" value={form.history}   onChange={v => setForm({ ...form, history: v })}   placeholder="既往手术、家族遗传等" />
             <TextArea label="当前用药" value={form.meds}    onChange={v => setForm({ ...form, meds: v })}     placeholder="药品名 / 剂量 / 频次" />
-          </>
-        )}
-
-        {step === 4 && (
-          <>
-            <div className="rounded-xl bg-card border border-border p-3">
-              <div className="text-xs text-muted-foreground mb-2">服务包</div>
-              <div className="grid grid-cols-3 gap-2">
-                {["体验包", "银卡", "金卡"].map(p => (
-                  <button key={p} onClick={() => setForm({ ...form, pkg: p })}
-                    className={`py-2.5 rounded-lg text-sm ${form.pkg === p ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{p}</button>
-                ))}
-              </div>
-              <div className="mt-2 text-[10px] text-muted-foreground">
-                {form.pkg === "体验包" && "14 天免费试用，含 2 次电话随访"}
-                {form.pkg === "银卡"   && "12 个月 · 月度随访 + MDT 1 次"}
-                {form.pkg === "金卡"   && "12 个月 · 周度随访 + MDT 4 次 + 24h 在线"}
-              </div>
-            </div>
             <TextArea label="健管师备注" value={form.note} onChange={v => setForm({ ...form, note: v })} placeholder="性格、沟通偏好、家庭背景等" />
-
             {/* 摘要 */}
             <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
               <div className="text-[11px] opacity-90">建档摘要</div>
-              <div className="text-sm font-medium mt-1">{form.name || "（未填姓名）"} · {form.gender} · {form.age || "?"}岁 · {form.pkg}</div>
+              <div className="text-sm font-medium mt-1">{form.name || "（未填姓名）"} · {form.gender} · {form.age || "?"}岁</div>
               <div className="text-[11px] opacity-90 mt-1">病种：{form.diseases.join("、") || "—"}</div>
               <div className="text-[11px] opacity-90">已上传 {files.length} 份病历资料</div>
             </div>
@@ -2987,7 +2966,7 @@ function AddCustomer({ pop }: { pop: () => void }) {
         ) : (
           <button onClick={pop} className="flex-1 py-3 rounded-xl bg-secondary text-sm">取消</button>
         )}
-        {step < 4 ? (
+        {step < 3 ? (
           <button onClick={() => setStep(s => s + 1)} className="flex-[1.5] py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground text-sm font-medium">下一步</button>
         ) : (
           <button onClick={submit} className="flex-[1.5] py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground text-sm font-medium">完成建档</button>
