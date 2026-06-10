@@ -278,7 +278,7 @@ export function MobileView() {
         {top.name === "stats"         && <TaskStats pop={pop} />}
         {top.name === "scripts"       && <ScriptLibrary pop={pop} push={push} />}
         {top.name === "newScript"     && <NewScript pop={pop} />}
-        {top.name === "mdt"           && <MdtRecords pop={pop} />}
+        {top.name === "mdt"           && <MdtRecords pop={pop} push={push} />}
         {top.name === "settings"      && <SettingsScreen pop={pop} />}
         {top.name === "profile"       && <ProfileEdit pop={pop} />}
         {top.name === "groupInfo"     && <GroupInfo id={top.id} pop={pop} push={push} />}
@@ -3132,13 +3132,18 @@ function ScriptLibrary({ pop, push }: { pop: () => void; push?: (s: Stack) => vo
 /* ============================================================
  * MDT 会诊记录
  * ============================================================ */
-function MdtRecords({ pop }: { pop: () => void }) {
-  const records = [
+function MdtRecords({ pop, push }: { pop: () => void; push: (s: Stack) => void }) {
+  const initial = [
     { id: "MDT-2026-031", customer: "王奶奶", date: "今天 16:00", status: "进行中",  team: ["赵主任", "钱药师", "孙老师", "我"], topic: "化疗反应处置 + 营养调整" },
     { id: "MDT-2026-030", customer: "张老爷子", date: "昨天 10:30", status: "已结束", team: ["赵主任", "钱药师", "我"], topic: "低血糖应急方案优化" },
     { id: "MDT-2026-029", customer: "周阿姨",   date: "5/10 14:00", status: "已结束", team: ["赵主任", "周教练", "我"], topic: "高血压 + 骨质疏松联合管理" },
     { id: "MDT-2026-028", customer: "李叔",     date: "5/08 09:00", status: "已结束", team: ["孙老师", "我"],            topic: "出差期饮食方案" },
   ];
+  const [records, setRecords] = useState(initial);
+  const complete = (id: string) => {
+    setRecords(rs => rs.map(r => r.id === id ? { ...r, status: "已结束" } : r));
+    toast.success("会诊已完成 · 已更新患者问诊记录并生成 MDT 总结");
+  };
   return (
     <div>
       <PageHeader title="MDT 会诊记录" pop={pop}
@@ -3161,9 +3166,13 @@ function MdtRecords({ pop }: { pop: () => void }) {
               <span className="ml-1 text-[10px] text-muted-foreground">{r.team.length} 人参与</span>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
-              <button onClick={() => toast.info("打开会诊纪要")} className="py-1.5 text-xs rounded-lg bg-secondary flex items-center justify-center gap-1"><FileText className="w-3 h-3" />纪要</button>
+              <button onClick={() => push({ name: "mdtDetail", id: r.id })} className="py-1.5 text-xs rounded-lg bg-secondary flex items-center justify-center gap-1"><FileText className="w-3 h-3" />纪要</button>
               <button onClick={() => toast.success("正在加入视频")} className="py-1.5 text-xs rounded-lg bg-secondary flex items-center justify-center gap-1"><Video className="w-3 h-3" />视频</button>
-              <button onClick={() => toast.info("已查看处置清单")} className="py-1.5 text-xs rounded-lg bg-primary text-primary-foreground flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" />处置</button>
+              {r.status === "进行中" ? (
+                <button onClick={() => complete(r.id)} className="py-1.5 text-xs rounded-lg bg-primary text-primary-foreground flex items-center justify-center gap-1"><CheckCircle2 className="w-3 h-3" />完成会诊</button>
+              ) : (
+                <button onClick={() => push({ name: "mdtDetail", id: r.id })} className="py-1.5 text-xs rounded-lg bg-primary text-primary-foreground flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" />总结</button>
+              )}
             </div>
           </div>
         ))}
