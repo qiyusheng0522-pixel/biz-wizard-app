@@ -2231,9 +2231,16 @@ function EscortTab({ name, cid, push }: { name: string; cid: string; push: (s: S
                   <div className="flex gap-2"><span className="shrink-0 text-muted-foreground w-12">用药</span><span className="flex-1">{r.meds}</span></div>
                   <div className="flex gap-2"><span className="shrink-0 text-primary w-12 flex items-center gap-1"><ClipboardList className="w-3 h-3" />跟踪</span><span className="flex-1">{r.followup}</span></div>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button onClick={() => toast.success("已生成上门复测待办")} className="py-1.5 rounded-lg bg-secondary text-[11px]">生成复测待办</button>
-                  <button onClick={() => push({ name: "chat", id: cid })} className="py-1.5 rounded-lg bg-primary/10 text-primary text-[11px]">同步家属群</button>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => {
+                      toast.success(`已上传 ${r.hospital} 档案 · 此次陪诊记录已更新，跟踪待办已生成`);
+                    }}
+                    className="py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] flex items-center justify-center gap-1">
+                    <Paperclip className="w-3 h-3" />上传医院档案
+                  </button>
+                  <button onClick={() => toast.success("已生成上门复测待办")} className="py-1.5 rounded-lg bg-secondary text-[11px]">复测待办</button>
+                  <button onClick={() => push({ name: "chat", id: cid })} className="py-1.5 rounded-lg bg-primary/10 text-primary text-[11px]">同步家属</button>
                 </div>
               </div>
             ))}
