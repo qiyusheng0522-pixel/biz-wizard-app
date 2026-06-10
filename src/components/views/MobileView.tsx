@@ -2745,7 +2745,7 @@ function Notifications({ pop }: { pop: () => void }) {
  * ============================================================ */
 function SearchScreen({ pop, push }: { pop: () => void; push: (s: Stack) => void }) {
   const [q, setQ] = useState("");
-  const results = q ? customers.filter(c => c.name.includes(q) || c.diseases.some(d => d.includes(q))) : [];
+  const results = q ? customers.filter(c => c.name.includes(q)) : [];
   return (
     <div>
       <div className="sticky top-0 bg-card/95 backdrop-blur border-b border-border px-2 py-2 flex items-center gap-2">
@@ -2753,16 +2753,16 @@ function SearchScreen({ pop, push }: { pop: () => void; push: (s: Stack) => void
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input autoFocus value={q} onChange={e => setQ(e.target.value)}
-            placeholder="搜索客户、病种、任务"
+            placeholder="搜索客户姓名"
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-secondary focus:outline-none" />
         </div>
       </div>
       <div className="p-4">
         {!q && (
           <>
-            <div className="text-xs text-muted-foreground mb-2">最近搜索</div>
+            <div className="text-xs text-muted-foreground mb-2">最近搜索的客户</div>
             <div className="flex flex-wrap gap-2">
-              {["张老爷子", "糖尿病", "高血压", "MDT"].map(s => (
+              {["张老爷子", "王奶奶", "刘伯", "周阿姨"].map(s => (
                 <button key={s} onClick={() => setQ(s)} className="text-xs px-3 py-1.5 rounded-full bg-secondary">{s}</button>
               ))}
             </div>
