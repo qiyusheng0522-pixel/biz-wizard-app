@@ -217,7 +217,9 @@ type Stack =
   | { name: "callSummary"; id: string; kind: "phone" | "voice" | "text" } // 沟通结束后 AI 摘要
   | { name: "messageBoard"; id: string }    // 给客户的留言
   | { name: "contactRoster" }               // 选择医师/护士/康复师
-  | { name: "imSearch" };                   // 沟通消息检索
+  | { name: "imSearch" }                    // 沟通消息检索
+  | { name: "checkinDetail"; id: string }   // 打卡详细记录
+  | { name: "mdtDetail"; id: string };      // MDT 会诊详情
 
 export function MobileView() {
   const [tab, setTab] = useState<"home" | "client" | "im" | "me">("home");
@@ -284,6 +286,8 @@ export function MobileView() {
         {top.name === "messageBoard"  && <MessageBoard id={top.id} pop={pop} />}
         {top.name === "contactRoster" && <ContactRoster pop={pop} />}
         {top.name === "imSearch"      && <ImSearch pop={pop} push={push} />}
+        {top.name === "checkinDetail" && <CheckinDetail id={top.id} pop={pop} />}
+        {top.name === "mdtDetail"     && <MdtDetail id={top.id} pop={pop} />}
       </div>
 
       {/* 底部 Tab Bar — 仅在根栈显示 */}
