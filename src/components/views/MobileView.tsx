@@ -2266,9 +2266,8 @@ function MedTab() {
                 <span className="flex items-center gap-1 text-muted-foreground"><Clock className="w-3 h-3" />下次 {m.next}</span>
                 {m.warn && <span className="text-danger flex items-center gap-1"><AlertCircle className="w-3 h-3" />{m.warn}</span>}
               </div>
-              <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+              <div className="grid grid-cols-2 gap-1.5 mt-2.5">
                 <button onClick={() => toast.success(`已推送 ${m.n} 服药提醒`)} className="py-1.5 rounded-lg bg-secondary text-[11px]">推送提醒</button>
-                <button onClick={() => toast.info("已询问钱药师")} className="py-1.5 rounded-lg bg-secondary text-[11px]">咨询药师</button>
                 <button onClick={() => toast.success("已记录已服")} className="py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px]">已服</button>
               </div>
             </div>
