@@ -217,7 +217,9 @@ type Stack =
   | { name: "callSummary"; id: string; kind: "phone" | "voice" | "text" } // 沟通结束后 AI 摘要
   | { name: "messageBoard"; id: string }    // 给客户的留言
   | { name: "contactRoster" }               // 选择医师/护士/康复师
-  | { name: "imSearch" };                   // 沟通消息检索
+  | { name: "imSearch" }                    // 沟通消息检索
+  | { name: "checkinDetail"; id: string }   // 打卡详细记录
+  | { name: "mdtDetail"; id: string };      // MDT 会诊详情
 
 export function MobileView() {
   const [tab, setTab] = useState<"home" | "client" | "im" | "me">("home");
@@ -276,7 +278,7 @@ export function MobileView() {
         {top.name === "stats"         && <TaskStats pop={pop} />}
         {top.name === "scripts"       && <ScriptLibrary pop={pop} push={push} />}
         {top.name === "newScript"     && <NewScript pop={pop} />}
-        {top.name === "mdt"           && <MdtRecords pop={pop} />}
+        {top.name === "mdt"           && <MdtRecords pop={pop} push={push} />}
         {top.name === "settings"      && <SettingsScreen pop={pop} />}
         {top.name === "profile"       && <ProfileEdit pop={pop} />}
         {top.name === "groupInfo"     && <GroupInfo id={top.id} pop={pop} push={push} />}
@@ -284,6 +286,8 @@ export function MobileView() {
         {top.name === "messageBoard"  && <MessageBoard id={top.id} pop={pop} />}
         {top.name === "contactRoster" && <ContactRoster pop={pop} />}
         {top.name === "imSearch"      && <ImSearch pop={pop} push={push} />}
+        {top.name === "checkinDetail" && <CheckinDetail id={top.id} pop={pop} />}
+        {top.name === "mdtDetail"     && <MdtDetail id={top.id} pop={pop} />}
       </div>
 
       {/* 底部 Tab Bar — 仅在根栈显示 */}
@@ -1244,6 +1248,105 @@ function MMe({ push, goClient }: {
 }
 
 /* ============================================================
+ * 打卡详细记录
+ * ============================================================ */
+function CheckinDetail({ id, pop }: { id: string; pop: () => void }) {
+  const c = customers.find(x => x.id === id) ?? customers[0];
+  // 近 30 天打卡明细
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const md = `${d.getMonth() + 1}/${String(d.getDate()).padStart(2, "0")}`;
+    const status = i === 5 || i === 17 ? "miss" : i % 7 === 3 ? "part" : "full";
+    return {
+      date: md,
+      status,
+      glucose: status === "miss" ? "—" : `${(6 + Math.random() * 2).toFixed(1)} mmol/L`,
+      bp: status === "miss" ? "—" : `${130 + Math.round(Math.random() * 10)}/${80 + Math.round(Math.random() * 8)} mmHg`,
+      med: status === "miss" ? "未打卡" : "二甲双胍 ✓ 厄贝沙坦 ✓",
+      ex: status === "miss" ? "—" : status === "part" ? "—" : `步行 ${3000 + Math.round(Math.random() * 3000)} 步`,
+      diet: status === "full" ? "三餐已记录" : status === "part" ? "仅早餐" : "—",
+    };
+  });
+  const full = days.filter(d => d.status === "full").length;
+  const part = days.filter(d => d.status === "part").length;
+  const miss = days.filter(d => d.status === "miss").length;
+  const rate = Math.round(((full + part * 0.5) / days.length) * 100);
+  return (
+    <div>
+      <PageHeader title={`${c.name} · 打卡详细记录`} pop={pop} />
+      <div className="p-4 space-y-3">
+        <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
+          <div className="text-[11px] opacity-90">近 30 天依从性</div>
+          <div className="text-2xl font-semibold mt-1">{rate}%</div>
+          <div className="mt-1 grid grid-cols-3 gap-2 text-[11px]">
+            <div className="rounded bg-white/15 px-2 py-1">完整 {full} 天</div>
+            <div className="rounded bg-white/15 px-2 py-1">部分 {part} 天</div>
+            <div className="rounded bg-white/15 px-2 py-1">漏打 {miss} 天</div>
+          </div>
+        </div>
+        <Section title="逐日打卡明细">
+          <div className="space-y-2">
+            {days.map(d => (
+              <div key={d.date} className="rounded-xl border border-border p-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[12px] font-medium">{d.date}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ml-auto ${
+                    d.status === "full" ? "bg-success/10 text-success" :
+                    d.status === "part" ? "bg-warning/10 text-[oklch(0.5_0.13_75)]" :
+                    "bg-danger/10 text-danger"
+                  }`}>{d.status === "full" ? "完整" : d.status === "part" ? "部分" : "漏打"}</span>
+                </div>
+                <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-foreground/85">
+                  <div><span className="text-muted-foreground">血糖 </span>{d.glucose}</div>
+                  <div><span className="text-muted-foreground">血压 </span>{d.bp}</div>
+                  <div className="col-span-2"><span className="text-muted-foreground">用药 </span>{d.med}</div>
+                  <div><span className="text-muted-foreground">运动 </span>{d.ex}</div>
+                  <div><span className="text-muted-foreground">饮食 </span>{d.diet}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+ * MDT 会诊详情（含完成会诊后的总结）
+ * ============================================================ */
+function MdtDetail({ id, pop }: { id: string; pop: () => void }) {
+  return (
+    <div>
+      <PageHeader title={`MDT 详情 · ${id}`} pop={pop} />
+      <div className="p-4 space-y-3">
+        <Section title="基本信息">
+          <div className="text-[12px] space-y-1">
+            <div><span className="text-muted-foreground">编号 </span>{id}</div>
+            <div><span className="text-muted-foreground">参与 </span>赵主任 / 钱药师 / 孙老师 / 我</div>
+            <div><span className="text-muted-foreground">主题 </span>化疗反应处置 + 营养调整</div>
+          </div>
+        </Section>
+        <Section title="AI 会诊总结" right={<span className="text-[10px] text-primary flex items-center gap-0.5"><Sparkles className="w-3 h-3" />自动生成</span>}>
+          <div className="text-[12px] leading-relaxed space-y-2">
+            <div><b className="text-primary">结论：</b>近期化疗反应可控，需调整止吐方案并加强营养补充。</div>
+            <div><b className="text-primary">用药调整：</b>昂丹司琼 8mg → 餐前 30min；二甲双胍调整为餐后 0.5g。</div>
+            <div><b className="text-primary">营养建议：</b>少量多餐，蛋白质 1.2g/kg，避免高脂；推荐口服营养补充剂 ONS。</div>
+            <div><b className="text-primary">随访计划：</b>3 天后电话随访恶心评分；1 周后复查肝肾功能。</div>
+          </div>
+        </Section>
+        <Section title="同步至患者问诊记录">
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-2.5 text-[11px] text-foreground/85">
+            <CheckCircle2 className="w-3.5 h-3.5 text-primary inline mr-1" />
+            本次 MDT 总结已自动写入患者问诊记录，并生成 2 条跟踪待办。
+          </div>
+        </Section>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
  * 详情：任务
  * ============================================================ */
 function TaskDetail({
@@ -1537,7 +1640,7 @@ function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => 
             </Section>
 
             {/* 历史打卡 + 依从性 */}
-            <CheckinHistory />
+            <CheckinHistory onMore={() => push({ name: "checkinDetail", id: c.id })} />
           </>
         )}
 
@@ -2227,9 +2330,16 @@ function EscortTab({ name, cid, push }: { name: string; cid: string; push: (s: S
                   <div className="flex gap-2"><span className="shrink-0 text-muted-foreground w-12">用药</span><span className="flex-1">{r.meds}</span></div>
                   <div className="flex gap-2"><span className="shrink-0 text-primary w-12 flex items-center gap-1"><ClipboardList className="w-3 h-3" />跟踪</span><span className="flex-1">{r.followup}</span></div>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button onClick={() => toast.success("已生成上门复测待办")} className="py-1.5 rounded-lg bg-secondary text-[11px]">生成复测待办</button>
-                  <button onClick={() => push({ name: "chat", id: cid })} className="py-1.5 rounded-lg bg-primary/10 text-primary text-[11px]">同步家属群</button>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <button
+                    onClick={() => {
+                      toast.success(`已上传 ${r.hospital} 档案 · 此次陪诊记录已更新，跟踪待办已生成`);
+                    }}
+                    className="py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px] flex items-center justify-center gap-1">
+                    <Paperclip className="w-3 h-3" />上传医院档案
+                  </button>
+                  <button onClick={() => toast.success("已生成上门复测待办")} className="py-1.5 rounded-lg bg-secondary text-[11px]">复测待办</button>
+                  <button onClick={() => push({ name: "chat", id: cid })} className="py-1.5 rounded-lg bg-primary/10 text-primary text-[11px]">同步家属</button>
                 </div>
               </div>
             ))}
@@ -2262,9 +2372,8 @@ function MedTab() {
                 <span className="flex items-center gap-1 text-muted-foreground"><Clock className="w-3 h-3" />下次 {m.next}</span>
                 {m.warn && <span className="text-danger flex items-center gap-1"><AlertCircle className="w-3 h-3" />{m.warn}</span>}
               </div>
-              <div className="grid grid-cols-3 gap-1.5 mt-2.5">
+              <div className="grid grid-cols-2 gap-1.5 mt-2.5">
                 <button onClick={() => toast.success(`已推送 ${m.n} 服药提醒`)} className="py-1.5 rounded-lg bg-secondary text-[11px]">推送提醒</button>
-                <button onClick={() => toast.info("已询问钱药师")} className="py-1.5 rounded-lg bg-secondary text-[11px]">咨询药师</button>
                 <button onClick={() => toast.success("已记录已服")} className="py-1.5 rounded-lg bg-primary text-primary-foreground text-[11px]">已服</button>
               </div>
             </div>
@@ -2487,16 +2596,11 @@ function ChatScreen({ id, pop, nav }: { id: string; pop: () => void; nav: (s: St
         <div className="text-center text-[10px] text-muted-foreground/70">长按或双击我方消息可撤回 / 引用</div>
       </div>
 
-      {/* 横滑快捷入口（永久可见 · 联系医师 / 护士 / 康复师 / 客户画像） */}
+      {/* 横滑快捷入口（仅保留 · 客户画像 / 话术库） */}
       <div className="border-t border-border bg-card px-2 py-1.5 flex gap-2 overflow-x-auto">
         {[
-          { l: "客户画像", i: User,        onClick: () => setShowProfile(true) },
-          { l: "联系医师", i: Stethoscope, onClick: () => { toast.success("已发起与赵主任的对话"); push({ from: "赵主任", fromRole: "doctor", text: "我在，请讲。" }); } },
-          { l: "联系护士", i: HeartHandshake, onClick: () => { toast.success("已发起与周护士的对话"); push({ from: "周护士", fromRole: "nurse", text: "我可在 30 分钟内上门。" }); } },
-          { l: "联系康复", i: Activity,    onClick: () => { toast.success("已发起与周教练的对话"); push({ from: "周教练", fromRole: "nurse", text: "今晚为您安排 20 分钟拉伸。" }); } },
-          { l: "选人协同", i: UserPlus,    onClick: () => setShowRoster(true) },
-          { l: "留言",     i: BookMarked,  onClick: () => setShowLeave(true) },
-          { l: "结束沟通", i: PhoneOff,    onClick: () => setShowEndPanel(true) },
+          { l: "客户画像", i: User,        onClick: () => { setShowProfile(false); nav({ name: "customer", id: c.id }); } },
+          { l: "话术库",   i: BookOpen,    onClick: () => nav({ name: "scripts" }) },
         ].map(a => {
           const Icon = a.i;
           return (
@@ -2741,7 +2845,7 @@ function Notifications({ pop }: { pop: () => void }) {
  * ============================================================ */
 function SearchScreen({ pop, push }: { pop: () => void; push: (s: Stack) => void }) {
   const [q, setQ] = useState("");
-  const results = q ? customers.filter(c => c.name.includes(q) || c.diseases.some(d => d.includes(q))) : [];
+  const results = q ? customers.filter(c => c.name.includes(q)) : [];
   return (
     <div>
       <div className="sticky top-0 bg-card/95 backdrop-blur border-b border-border px-2 py-2 flex items-center gap-2">
@@ -2749,16 +2853,16 @@ function SearchScreen({ pop, push }: { pop: () => void; push: (s: Stack) => void
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input autoFocus value={q} onChange={e => setQ(e.target.value)}
-            placeholder="搜索客户、病种、任务"
+            placeholder="搜索客户姓名"
             className="w-full pl-9 pr-3 py-2 text-sm rounded-lg bg-secondary focus:outline-none" />
         </div>
       </div>
       <div className="p-4">
         {!q && (
           <>
-            <div className="text-xs text-muted-foreground mb-2">最近搜索</div>
+            <div className="text-xs text-muted-foreground mb-2">最近搜索的客户</div>
             <div className="flex flex-wrap gap-2">
-              {["张老爷子", "糖尿病", "高血压", "MDT"].map(s => (
+              {["张老爷子", "王奶奶", "刘伯", "周阿姨"].map(s => (
                 <button key={s} onClick={() => setQ(s)} className="text-xs px-3 py-1.5 rounded-full bg-secondary">{s}</button>
               ))}
             </div>
@@ -2837,7 +2941,6 @@ function AddCustomer({ pop }: { pop: () => void }) {
             { n: 1, l: "基本信息" },
             { n: 2, l: "病历资料" },
             { n: 3, l: "健康档案" },
-            { n: 4, l: "服务包" },
           ].map((s, i) => (
             <div key={s.n} className="flex-1 flex items-center gap-2">
               <button onClick={() => setStep(s.n)}
@@ -2845,7 +2948,7 @@ function AddCustomer({ pop }: { pop: () => void }) {
                 <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${step >= s.n ? "bg-primary-foreground/30" : "bg-background"}`}>{s.n}</span>
                 {s.l}
               </button>
-              {i < 3 && <span className={`h-px flex-1 ${step > s.n ? "bg-primary/40" : "bg-border"}`} />}
+              {i < 2 && <span className={`h-px flex-1 ${step > s.n ? "bg-primary/40" : "bg-border"}`} />}
             </div>
           ))}
         </div>
@@ -2944,31 +3047,11 @@ function AddCustomer({ pop }: { pop: () => void }) {
             <TextArea label="过敏史" value={form.allergies} onChange={v => setForm({ ...form, allergies: v })} placeholder="如：青霉素、海鲜，无则填无" />
             <TextArea label="既往史" value={form.history}   onChange={v => setForm({ ...form, history: v })}   placeholder="既往手术、家族遗传等" />
             <TextArea label="当前用药" value={form.meds}    onChange={v => setForm({ ...form, meds: v })}     placeholder="药品名 / 剂量 / 频次" />
-          </>
-        )}
-
-        {step === 4 && (
-          <>
-            <div className="rounded-xl bg-card border border-border p-3">
-              <div className="text-xs text-muted-foreground mb-2">服务包</div>
-              <div className="grid grid-cols-3 gap-2">
-                {["体验包", "银卡", "金卡"].map(p => (
-                  <button key={p} onClick={() => setForm({ ...form, pkg: p })}
-                    className={`py-2.5 rounded-lg text-sm ${form.pkg === p ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>{p}</button>
-                ))}
-              </div>
-              <div className="mt-2 text-[10px] text-muted-foreground">
-                {form.pkg === "体验包" && "14 天免费试用，含 2 次电话随访"}
-                {form.pkg === "银卡"   && "12 个月 · 月度随访 + MDT 1 次"}
-                {form.pkg === "金卡"   && "12 个月 · 周度随访 + MDT 4 次 + 24h 在线"}
-              </div>
-            </div>
             <TextArea label="健管师备注" value={form.note} onChange={v => setForm({ ...form, note: v })} placeholder="性格、沟通偏好、家庭背景等" />
-
             {/* 摘要 */}
             <div className="rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground p-3">
               <div className="text-[11px] opacity-90">建档摘要</div>
-              <div className="text-sm font-medium mt-1">{form.name || "（未填姓名）"} · {form.gender} · {form.age || "?"}岁 · {form.pkg}</div>
+              <div className="text-sm font-medium mt-1">{form.name || "（未填姓名）"} · {form.gender} · {form.age || "?"}岁</div>
               <div className="text-[11px] opacity-90 mt-1">病种：{form.diseases.join("、") || "—"}</div>
               <div className="text-[11px] opacity-90">已上传 {files.length} 份病历资料</div>
             </div>
@@ -2983,7 +3066,7 @@ function AddCustomer({ pop }: { pop: () => void }) {
         ) : (
           <button onClick={pop} className="flex-1 py-3 rounded-xl bg-secondary text-sm">取消</button>
         )}
-        {step < 4 ? (
+        {step < 3 ? (
           <button onClick={() => setStep(s => s + 1)} className="flex-[1.5] py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground text-sm font-medium">下一步</button>
         ) : (
           <button onClick={submit} className="flex-[1.5] py-3 rounded-xl bg-[image:var(--gradient-primary)] text-primary-foreground text-sm font-medium">完成建档</button>
@@ -3155,13 +3238,18 @@ function ScriptLibrary({ pop, push }: { pop: () => void; push?: (s: Stack) => vo
 /* ============================================================
  * MDT 会诊记录
  * ============================================================ */
-function MdtRecords({ pop }: { pop: () => void }) {
-  const records = [
+function MdtRecords({ pop, push }: { pop: () => void; push: (s: Stack) => void }) {
+  const initial = [
     { id: "MDT-2026-031", customer: "王奶奶", date: "今天 16:00", status: "进行中",  team: ["赵主任", "钱药师", "孙老师", "我"], topic: "化疗反应处置 + 营养调整" },
     { id: "MDT-2026-030", customer: "张老爷子", date: "昨天 10:30", status: "已结束", team: ["赵主任", "钱药师", "我"], topic: "低血糖应急方案优化" },
     { id: "MDT-2026-029", customer: "周阿姨",   date: "5/10 14:00", status: "已结束", team: ["赵主任", "周教练", "我"], topic: "高血压 + 骨质疏松联合管理" },
     { id: "MDT-2026-028", customer: "李叔",     date: "5/08 09:00", status: "已结束", team: ["孙老师", "我"],            topic: "出差期饮食方案" },
   ];
+  const [records, setRecords] = useState(initial);
+  const complete = (id: string) => {
+    setRecords(rs => rs.map(r => r.id === id ? { ...r, status: "已结束" } : r));
+    toast.success("会诊已完成 · 已更新患者问诊记录并生成 MDT 总结");
+  };
   return (
     <div>
       <PageHeader title="MDT 会诊记录" pop={pop}
@@ -3184,9 +3272,13 @@ function MdtRecords({ pop }: { pop: () => void }) {
               <span className="ml-1 text-[10px] text-muted-foreground">{r.team.length} 人参与</span>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2">
-              <button onClick={() => toast.info("打开会诊纪要")} className="py-1.5 text-xs rounded-lg bg-secondary flex items-center justify-center gap-1"><FileText className="w-3 h-3" />纪要</button>
+              <button onClick={() => push({ name: "mdtDetail", id: r.id })} className="py-1.5 text-xs rounded-lg bg-secondary flex items-center justify-center gap-1"><FileText className="w-3 h-3" />纪要</button>
               <button onClick={() => toast.success("正在加入视频")} className="py-1.5 text-xs rounded-lg bg-secondary flex items-center justify-center gap-1"><Video className="w-3 h-3" />视频</button>
-              <button onClick={() => toast.info("已查看处置清单")} className="py-1.5 text-xs rounded-lg bg-primary text-primary-foreground flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" />处置</button>
+              {r.status === "进行中" ? (
+                <button onClick={() => complete(r.id)} className="py-1.5 text-xs rounded-lg bg-primary text-primary-foreground flex items-center justify-center gap-1"><CheckCircle2 className="w-3 h-3" />完成会诊</button>
+              ) : (
+                <button onClick={() => push({ name: "mdtDetail", id: r.id })} className="py-1.5 text-xs rounded-lg bg-primary text-primary-foreground flex items-center justify-center gap-1"><ClipboardList className="w-3 h-3" />总结</button>
+              )}
             </div>
           </div>
         ))}
@@ -3931,7 +4023,7 @@ function StationTab() {
 }
 
 /* ---------- 历史打卡 + 依从性 ---------- */
-function CheckinHistory() {
+function CheckinHistory({ onMore }: { onMore?: () => void }) {
   // 近 28 天打卡（0 未打卡 / 1 部分 / 2 完整）
   const days = [2,2,1,2,2,0,2, 2,1,2,2,2,2,1, 2,2,2,0,2,2,2, 1,2,2,2,2,2,2];
   const total = days.length;
@@ -3955,7 +4047,9 @@ function CheckinHistory() {
     { d: "5/14", items: ["血糖 6.8", "用药 ✓", "晚餐拍照"] },
   ];
   return (
-    <Section title="历史打卡 · 依从性">
+    <Section title="历史打卡 · 依从性" right={onMore && (
+      <button onClick={onMore} className="text-[11px] text-primary flex items-center gap-0.5">更多<ChevronRight className="w-3 h-3" /></button>
+    )}>
       <div className="flex items-center gap-3 mb-2">
         <div className="text-center">
           <div className={`text-2xl font-semibold ${tone.c}`}>{rate}%</div>
