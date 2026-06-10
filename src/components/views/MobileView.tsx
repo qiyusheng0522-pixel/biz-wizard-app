@@ -2491,16 +2491,11 @@ function ChatScreen({ id, pop, nav }: { id: string; pop: () => void; nav: (s: St
         <div className="text-center text-[10px] text-muted-foreground/70">长按或双击我方消息可撤回 / 引用</div>
       </div>
 
-      {/* 横滑快捷入口（永久可见 · 联系医师 / 护士 / 康复师 / 客户画像） */}
+      {/* 横滑快捷入口（仅保留 · 客户画像 / 话术库） */}
       <div className="border-t border-border bg-card px-2 py-1.5 flex gap-2 overflow-x-auto">
         {[
-          { l: "客户画像", i: User,        onClick: () => setShowProfile(true) },
-          { l: "联系医师", i: Stethoscope, onClick: () => { toast.success("已发起与赵主任的对话"); push({ from: "赵主任", fromRole: "doctor", text: "我在，请讲。" }); } },
-          { l: "联系护士", i: HeartHandshake, onClick: () => { toast.success("已发起与周护士的对话"); push({ from: "周护士", fromRole: "nurse", text: "我可在 30 分钟内上门。" }); } },
-          { l: "联系康复", i: Activity,    onClick: () => { toast.success("已发起与周教练的对话"); push({ from: "周教练", fromRole: "nurse", text: "今晚为您安排 20 分钟拉伸。" }); } },
-          { l: "选人协同", i: UserPlus,    onClick: () => setShowRoster(true) },
-          { l: "留言",     i: BookMarked,  onClick: () => setShowLeave(true) },
-          { l: "结束沟通", i: PhoneOff,    onClick: () => setShowEndPanel(true) },
+          { l: "客户画像", i: User,        onClick: () => { setShowProfile(false); nav({ name: "customer", id: c.id }); } },
+          { l: "话术库",   i: BookOpen,    onClick: () => nav({ name: "scripts" }) },
         ].map(a => {
           const Icon = a.i;
           return (
