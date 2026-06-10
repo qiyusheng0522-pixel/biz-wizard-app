@@ -1541,7 +1541,7 @@ function CustomerDetail({ id, pop, push, initialTab }: { id: string; pop: () => 
             </Section>
 
             {/* 历史打卡 + 依从性 */}
-            <CheckinHistory />
+            <CheckinHistory onMore={() => push({ name: "checkinDetail", id: c.id })} />
           </>
         )}
 
@@ -3908,7 +3908,7 @@ function StationTab() {
 }
 
 /* ---------- 历史打卡 + 依从性 ---------- */
-function CheckinHistory() {
+function CheckinHistory({ onMore }: { onMore?: () => void }) {
   // 近 28 天打卡（0 未打卡 / 1 部分 / 2 完整）
   const days = [2,2,1,2,2,0,2, 2,1,2,2,2,2,1, 2,2,2,0,2,2,2, 1,2,2,2,2,2,2];
   const total = days.length;
@@ -3932,7 +3932,9 @@ function CheckinHistory() {
     { d: "5/14", items: ["血糖 6.8", "用药 ✓", "晚餐拍照"] },
   ];
   return (
-    <Section title="历史打卡 · 依从性">
+    <Section title="历史打卡 · 依从性" right={onMore && (
+      <button onClick={onMore} className="text-[11px] text-primary flex items-center gap-0.5">更多<ChevronRight className="w-3 h-3" /></button>
+    )}>
       <div className="flex items-center gap-3 mb-2">
         <div className="text-center">
           <div className={`text-2xl font-semibold ${tone.c}`}>{rate}%</div>
